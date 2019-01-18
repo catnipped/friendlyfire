@@ -248,7 +248,7 @@ end
 
 -->8
 function _draw()
-	cls()
+	if every(5,5) or every(6,10) then cls() end
 	pal()
 	local lbounds = const.bounds
 	for box in all(lbounds) do
