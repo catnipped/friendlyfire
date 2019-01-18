@@ -252,7 +252,8 @@ function _draw()
 	pal()
 	local lbounds = const.bounds
 	for box in all(lbounds) do
-		rect(box.x,box.y,box.x+box.w,box.y+box.h,3)
+		if every(30,0,3) then rect(box.x,box.y,box.x+box.w,box.y+box.h,11) end
+		if every(30,3,5) then rect(box.x,box.y,box.x+box.w,box.y+box.h,14) end
 	end
 		if every(3) then pal(7,14) end
 		if every(3,1) then pal(7,11) end
@@ -263,7 +264,8 @@ function _draw()
 	for p in all(state.players) do
 		local lp = p
 		local flipy = false
-		if p.id == 2 then flipy = true end
+		if every(4,0,2) then circ(lp.x,lp.y,10,3) end
+		if lp.id == 2 then flipy = true end
 		if btn(0,lp.id-1) then
 			spr(2,lp.x-3,lp.y-8,1,2,true,flipy)
 		elseif btn(1,lp.id-1) then
