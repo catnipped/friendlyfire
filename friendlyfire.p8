@@ -54,8 +54,8 @@ function _init()
 		time = 0
 	}
 	printh("init")
-	state.enemies[1] = spawnEnemy({64,64})
-	state.enemies[2] = spawnEnemy({89,45})
+	state.enemies[1] = spawnEnemy({64,64},"alien")
+	state.enemies[2] = spawnEnemy({89,45},"alien")
 end
 
 function pythagoras(ax,ay,bx,by)
@@ -206,23 +206,26 @@ function spawnProjectile(p)
 	return proj
 end
 
-function spawnEnemy(pos)
-	local enemy = { 
-		id = "alien", 
-		x = pos[1], 
-		y =  pos[2],
-		rad = 6,   
-		vector = {0,0},
-		velocity = 1.2,
-		movement = function(enemy,time)
-			enemy.vector = {sin(time%1),sin(time%1)}
-		end,
-		gfx = function(enemy)
-			if every(20) then circfill(enemy.x,enemy.y,enemy.rad,8) end
-			spr(6,enemy.x-3,enemy.y-4) 
-		end
-	}
-
+function spawnEnemy(pos,type)
+	local enemy = {}
+	if type == "alien" then
+		enemy = { 
+			id = "alien",
+			hp = 10, 
+			x = pos[1], 
+			y =  pos[2],
+			rad = 6,   
+			vector = {0,0},
+			velocity = 1.2,
+			movement = function(enemy,time)
+				enemy.vector = {sin(time%1),sin(time%1)}
+			end,
+			gfx = function(enemy)
+				if every(20) then circfill(enemy.x,enemy.y,enemy.rad,8) end
+				spr(6,enemy.x-3,enemy.y-4) 
+			end
+		}
+	end
 	return enemy
 end
 
@@ -306,6 +309,14 @@ function updateEvents(state,events)
 
 	each (newProjs, function (i)
 		add(lstate.projectiles, i.object)
+	end)
+
+	local collisions = filter(events, function (i) 
+		return i.type == "collision"
+	end)
+
+	each (collisions, function (i)
+			
 	end)
 	return lstate
 end
