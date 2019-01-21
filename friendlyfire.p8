@@ -52,6 +52,7 @@ function _init()
 		},
 		enemies = {},
 		projectiles = {},
+		animations = {},
 		time = 0
 	}
 	printh("init")
@@ -155,6 +156,7 @@ function  _update60()
 	lstate.enemies = updateEnemies(lstate.enemies, lstate.time, events)
 	lstate.projectiles = updateProjectiles(lstate.projectiles, events, lstate.players, lstate.enemies)
 	lstate = updateEvents(lstate,events)
+	lstate.animations = updateAnims(lstate)
 	lstate.time += 1/60
 	if every(10) then lstate.score += flr(rnd(10)) end
 	state = lstate
@@ -199,7 +201,6 @@ end
 
 function cooldowntimer(time, p)
 	if time - p.cooldown < p.rateoffire[1] then
-		printh(time-p.cooldown)
 		return false
 	else
 		return true
@@ -286,12 +287,12 @@ end
 
 function projCollisionCheck(proj,players,enemies)
 	collision = {}
-	funmap(players, function(i)
+	each(players, function(i)
 		if collisionCheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad,i.id,proj.id) then
 			collision = {i, proj}
 		end
 	end)
-	map(enemies, function(i)
+	each(enemies, function(i)
 		if collisionCheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad,i.id,proj.id) then
 			collision = {i, proj}
 		end
@@ -324,6 +325,9 @@ function updateEvents(state,events)
 
 	each (newProjs, function (i)
 		add(lstate.projectiles, i.object)
+		local object = spawngfx("flare",i.object.x,i.object.y)
+		add(lstate.animations,object)
+		printh("flare:" .. i.object.x .. "/" .. i.object.y)
 	end)
 
 	local collisions = filter(events, function (i) 
@@ -331,11 +335,23 @@ function updateEvents(state,events)
 	end)
 
 	each (collisions, function (i)
-			
+			-- add(lstate.animation,spawngfx("projecol"))
 	end)
 	return lstate
 end
 
+function updateAnims(animations)
+	lanims = animations
+	if #lanims > 0 then
+		lanims = funmap(lanims, function(anim)	
+			anim.frame += 1
+			if anim.frame <= anim.runtime then
+				return anim
+			end
+		end)
+	end
+	return lanims
+end
 
 -->8
 function _draw()
@@ -430,6 +446,22 @@ function drawScore (score, x, y)
     local nr = 0 .. sub(score, n,n)
     spr(32+nr,((n-1)*10)+x,y)
 	end
+end
+
+function spawngfx(type, lx, ly)
+	gfx = {}
+	if type == "flare" then
+		gfx = {
+			frame = 1,
+			runtime = 2,
+			x = lx,
+			y = ly,
+			animation = function(gfx) 
+				circfill(gfx.x,gfx.y,gfx.runtime-gfx.frame,7)
+			end	
+		}
+	end
+	return gfx
 end
 __gfx__
 000000000000000000000000000000000000000000000000007770000077000007700000000000000000000000000000bbbb0000bbbbb0008888800000000000
