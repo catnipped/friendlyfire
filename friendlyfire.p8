@@ -478,17 +478,17 @@ function spawngfx(type, lx, ly)
 	if type == "projcol" then
 		gfx = {
 			frame = 0,
-			runtime = 5,
+			runtime = 10,
 			x = lx,
 			y = ly,
-			gfx = function(vector)
+			gfx = function(a)
 				local clrs = {7,14,11}
-				if vector.x != nil then
+				if a.x != nil then
 					for i = 1,8 do
 						local rad = i/8
-						local x2 = vector.x + cos(rad) * 10
-						local y2 = vector.y + sin(rad) * 10
-						line(vector.x,vector.y,x2,y2,clrs[flr(rnd(4))])
+						local x2 = a.x + cos(rad) * a.frame
+						local y2 = a.y + sin(rad) * a.frame
+						line(a.x,a.y,x2,y2,clrs[flr(rnd(4))])
 					end
 				end
 			end	
