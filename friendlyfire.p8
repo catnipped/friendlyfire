@@ -156,7 +156,8 @@ function  _update60()
 	lstate.enemies = updateEnemies(lstate.enemies, lstate.time, events)
 	lstate.projectiles = updateProjectiles(lstate.projectiles, events, lstate.players, lstate.enemies)
 	lstate = updateEvents(lstate,events)
-	lstate.animations = updateAnims(lstate)
+	lstate.animations = updateAnims(lstate.animations)
+
 	lstate.time += 1/60
 	if every(10) then lstate.score += flr(rnd(10)) end
 	state = lstate
@@ -263,10 +264,12 @@ function updateProjectiles(projs, events, players, enemies)
 			lproj.x += lproj.vector[1] * lproj.velocity
 			lproj.y += lproj.vector[2] * lproj.velocity
 			local collision = projCollisionCheck(lproj, players, enemies)
-			if collision != nil then
-				add(events, {type = "collision", collision})
+			if collision.x != nil then
+				add(events, {type = "collision", object = collision})
+				printh("delete this")
+			else
+				return lproj
 			end
-			return lproj
 		end)
 		each(lprojs, function (i)
 			if outOfBounds(i,const.limits) then del(lprojs,i) end
@@ -289,12 +292,20 @@ function projCollisionCheck(proj,players,enemies)
 	collision = {}
 	each(players, function(i)
 		if collisionCheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad,i.id,proj.id) then
-			collision = {i, proj}
+			printh("collision!")
+			collision = {
+				x = proj.x,
+				y = proj.y,
+			}
 		end
 	end)
 	each(enemies, function(i)
 		if collisionCheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad,i.id,proj.id) then
-			collision = {i, proj}
+			printh("collision!")
+			collision = {
+				x = proj.x,
+				y = proj.y,
+			}
 		end
 	end)
 	return collision
@@ -302,7 +313,6 @@ end
 
 function collisionCheck(ax, ay, bx, by, ar, br, aid, bid)
 	if pythagoras(ax, ay, bx, by) < (ar + br) and aid != bid then
-		printh("collision!")
 		return true
 	else 
 		return false
@@ -327,7 +337,6 @@ function updateEvents(state,events)
 		add(lstate.projectiles, i.object)
 		local object = spawngfx("flare",i.object.x,i.object.y)
 		add(lstate.animations,object)
-		printh("flare:" .. i.object.x .. "/" .. i.object.y)
 	end)
 
 	local collisions = filter(events, function (i) 
@@ -335,22 +344,21 @@ function updateEvents(state,events)
 	end)
 
 	each (collisions, function (i)
-			-- add(lstate.animation,spawngfx("projecol"))
+			local object = spawngfx("projcol",i.object.x,i.object.y)
+			add(lstate.animations,object)
 	end)
 	return lstate
 end
 
 function updateAnims(animations)
-	lanims = animations
-	if #lanims > 0 then
-		lanims = funmap(lanims, function(anim)	
-			anim.frame += 1
-			if anim.frame <= anim.runtime then
-				return anim
-			end
-		end)
+	local lanims = animations
+	for i in all(lanims) do
+		i.frame += 1
 	end
-	return lanims
+	local lanims2 = filter(lanims, function(i)
+		return i.frame < i.runtime
+	end)
+	return lanims2
 end
 
 -->8
@@ -363,10 +371,10 @@ function _draw()
 	rect(-1,61,128,67,5)
 	-- pal(7,0)
 	drawScore("" .. state.score ,4,60)
-	spr(3,120,62)
-	spr(3,113,62)
+	-- spr(3,120,62)
+	-- spr(3,113,62)
 	pal()
-	-- print(stat(1), 104 , 62 , 0)
+	print(stat(1), 104 , 62 , 7)
 end
 
 function draw_player(p,y1,y2,yoffset)
@@ -408,6 +416,10 @@ function draw_player(p,y1,y2,yoffset)
 		else
 			spr(16,proj.x-proj.rad,proj.y-proj.rad)
 		end
+	end
+	pal()
+	for anim in all(state.animations) do
+		anim.gfx(anim)
 	end
 
 
@@ -452,12 +464,33 @@ function spawngfx(type, lx, ly)
 	gfx = {}
 	if type == "flare" then
 		gfx = {
-			frame = 1,
-			runtime = 2,
+			frame = 0,
+			runtime = 5,
 			x = lx,
 			y = ly,
-			animation = function(gfx) 
-				circfill(gfx.x,gfx.y,gfx.runtime-gfx.frame,7)
+			gfx = function(gfx)
+				local clr = 7
+				if every(3,0,2) then clr = 8 end
+				circfill(gfx.x,gfx.y,4-gfx.frame/2,clr)
+			end	
+		}
+	end
+	if type == "projcol" then
+		gfx = {
+			frame = 0,
+			runtime = 5,
+			x = lx,
+			y = ly,
+			gfx = function(vector)
+				local clrs = {7,14,11}
+				if vector.x != nil then
+					for i = 1,8 do
+						local rad = i/8
+						local x2 = vector.x + cos(rad) * 10
+						local y2 = vector.y + sin(rad) * 10
+						line(vector.x,vector.y,x2,y2,clrs[flr(rnd(4))])
+					end
+				end
 			end	
 		}
 	end
