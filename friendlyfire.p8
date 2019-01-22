@@ -159,11 +159,25 @@ function  _update60()
 	events = returnCollisions(events,lstate)
 	events = updateEvents(lstate,events)
 	lstate.animations = updateAnims(lstate.animations)
-
+	lstate = cleanUp(lstate)
 	lstate.time += 1/60
 	if every(10) then lstate.score += flr(rnd(10)) end
 	state = lstate
 	events = {}
+end
+
+function cleanUp(state)
+	local lstate = state
+	-- lstate.enemies = filter(state.enemies, function(i)
+	-- 	return i.death == true
+	-- end)
+	lstate.projectiles = filter(state.projectiles, function(i)
+
+			return i.death == false
+		
+	end)
+
+	return lstate
 end
 
 -- PLAYER
@@ -267,7 +281,8 @@ function spawnProjectile(p)
 		rad = 1, 
 		vector = p.projdir,  
 		velocity = 1.2, 
-		gfx = 1, 
+		gfx = 1,
+		death = false, 
 	}
 	proj.x += proj.vector[1] * 8
 	proj.y += proj.vector[2] * 8
@@ -280,6 +295,12 @@ function updateProjectiles(projs)
 		lprojs = funmap(projs, function(lproj)
 			lproj.x += lproj.vector[1] * lproj.velocity
 			lproj.y += lproj.vector[2] * lproj.velocity
+			local collision = projCollisionCheck(lproj, state.players, state.enemies)
+			if collision == nil then
+				lproj.death = false
+			else
+				lproj.death = true
+			end
 			return lproj
 		end)
 		lprojs = filter(lprojs, function (i)
@@ -289,7 +310,7 @@ function updateProjectiles(projs)
 			return #lprojs < 100
 		end)
 	end
-	return lprojs, events
+	return lprojs
 end
 
 function outOfBounds(object,limits)
@@ -422,8 +443,8 @@ end
 --DRAW FUNCTIONS BELOW
 function _draw()
 	cls()
-	drawPlayer(state.players[2],0,60,-16)
-	drawPlayer(state.players[1],68,128,-112)
+	drawPlayerViewport(state.players[2],0,60,-16)
+	drawPlayerViewport(state.players[1],68,128,-112)
 	clip()
 	camera(0,0)
 	rect(-1,61,128,67,5)
@@ -436,7 +457,7 @@ function _draw()
 
 end
 
-function drawPlayer(p,y1,y2,yoffset)
+function drawPlayerViewport(p,y1,y2,yoffset)
 	clip(0,y1,128,y2)
 	camera(p.cam.x-64,p.cam.y+yoffset)
 	pal()
@@ -530,7 +551,7 @@ __gfx__
 00000000075557000775550000000000000000000000000007777700000000000000000000000000000000000000000000000000000000000000000000000000
 00000000077577000777570000000000000000000000000000777000000000000000000000000000000000000000000000000000000000000000000000000000
 07000000077777000777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-78700000007770000077700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+77700000007770000077700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 07000000007770000077700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000077777000077700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000777077700777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
