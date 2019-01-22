@@ -16,7 +16,7 @@ function _init()
 			up = {0,-1},
 			down = {0,1}
 		},
-		stars = init_stars(64,3)
+		stars = initStars(64,3)
 	}
 	const = protect(const)
 	state = {
@@ -57,11 +57,11 @@ function _init()
 		time = 0
 	}
 	printh("init")
-	state.enemies[1] = spawnenemy({64,64},"alien")
-	state.enemies[2] = spawnenemy({89,45},"alien")
+	state.enemies[1] = spawnEnemy({64,64},"alien")
+	state.enemies[2] = spawnEnemy({89,45},"alien")
 end
 
-function init_stars(a,layer)
+function initStars(a,layer)
 	local stars = {}
 	for i = 1,layer do
 		local l = {}
@@ -79,7 +79,7 @@ function pythagoras(ax,ay,bx,by)
   return sqrt(px*px + py*py)
 end
 
-function vector_normalize(vector)
+function vectorNormalize(vector)
 		local lvector = {0,0}
 		local len = sqrt(vector[1] * vector[1] + vector[2] * vector[2])
     if len ~= 0 and len ~= 1 then
@@ -155,8 +155,9 @@ function  _update60()
 	local events = {}
 	lstate.players = updatePlayers(lstate.players, lstate.time, events)
 	lstate.enemies = updateEnemies(lstate.enemies, lstate.time, events)
-	lstate.projectiles = updateProjectiles(lstate.projectiles, events, lstate.players, lstate.enemies)
-	lstate = updateEvents(lstate,events)
+	lstate.projectiles = updateProjectiles(lstate.projectiles)
+	events = returnCollisions(events,lstate)
+	events = updateEvents(lstate,events)
 	lstate.animations = updateAnims(lstate.animations)
 
 	lstate.time += 1/60
@@ -175,7 +176,7 @@ function updatePlayers(p, time, events)
 		lp.vx = lerp(lp.vx, 0, 0.05)
 		lp.vy = lerp(lp.vy, 0, 0.05)
 
-		if btn(4,lp.id-1) and cooldowntimer(time, lp) then 
+		if btn(4,lp.id-1) and cooldownTimer(time, lp) then 
 			local lproj = spawnProjectile(lp)
 			lp.cooldown = time
 			lp.rateoffire[1] = lp.rateoffire[2]
@@ -202,7 +203,7 @@ function updatePlayers(p, time, events)
 	return lps
 end
 
-function cooldowntimer(time, p)
+function cooldownTimer(time, p)
 	if time - p.cooldown < p.rateoffire[1] then
 		return false
 	else
@@ -218,57 +219,24 @@ function updateCam(p)
 	return lcam
 end
 
-
---PROJECTILE
-function spawnProjectile(p)
-	local proj = { 
-		id = p.id, 
-		x = p.x, 
-		y =  p.y,
-		rad = 1, 
-		vector = p.projdir,  
-		velocity = 1.2, 
-		gfx = 1, 
-	}
-	proj.x += proj.vector[1] * 8
-	proj.y += proj.vector[2] * 8
-	return proj
-end
-
-function updateProjectiles(projs, events, players, enemies)
-	local lprojs = {}
-	if #projs > 0 then
-		lprojs = funmap(projs, function(lproj)
-			lproj.x += lproj.vector[1] * lproj.velocity
-			lproj.y += lproj.vector[2] * lproj.velocity
-			local collision = projCollisionCheck(lproj, players, enemies)
-			if collision.x != nil then
-				add(events, {type = "collision", object = collision})
-			else
-				return lproj
-			end
-		end)
-		lprojs = filter(lprojs, function (i)
-			return outOfBounds(i,const.limits) == false
-		end)
-		lprojs = filter(lprojs, function (i)
-			return #lprojs < 100
-		end)
+function returnCollisions(events, state)
+	local levents = {}
+	each(state.projectiles, function(i)
+		local collision = projCollisionCheck(i, state.players, state.enemies)
+		if collision != nil then
+			add(levents, {type = "collision", object = collision})
+		end
+	end)
+	
+	for i in all(events) do
+		add(levents,i)
 	end
-	return lprojs
-end
-
-function outOfBounds(object,limits)
-	if object.x > limits.x2 or object.x < limits.x1 or 
-	object.y > limits.y2 or object.y < limits.y1 then
-		return true
-	else
-		return false
-	end
+	return levents
 end
 
 function projCollisionCheck(proj,players,enemies)
-	collision = {}
+	collision = nil
+
 	each(players, function(i)
 		if collisionCheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad,i.id,proj.id) then
 			printh("collision!")
@@ -290,6 +258,49 @@ function projCollisionCheck(proj,players,enemies)
 	return collision
 end
 
+-- PROJECTILE
+function spawnProjectile(p)
+	local proj = { 
+		id = p.id, 
+		x = p.x, 
+		y =  p.y,
+		rad = 1, 
+		vector = p.projdir,  
+		velocity = 1.2, 
+		gfx = 1, 
+	}
+	proj.x += proj.vector[1] * 8
+	proj.y += proj.vector[2] * 8
+	return proj
+end
+
+function updateProjectiles(projs)
+	local lprojs = {}
+	if #projs > 0 then
+		lprojs = funmap(projs, function(lproj)
+			lproj.x += lproj.vector[1] * lproj.velocity
+			lproj.y += lproj.vector[2] * lproj.velocity
+			return lproj
+		end)
+		lprojs = filter(lprojs, function (i)
+			return outOfBounds(i,const.limits) == false
+		end)
+		lprojs = filter(lprojs, function (i)
+			return #lprojs < 100
+		end)
+	end
+	return lprojs, events
+end
+
+function outOfBounds(object,limits)
+	if object.x > limits.x2 or object.x < limits.x1 or 
+	object.y > limits.y2 or object.y < limits.y1 then
+		return true
+	else
+		return false
+	end
+end
+
 function collisionCheck(ax, ay, bx, by, ar, br, aid, bid)
 	if pythagoras(ax, ay, bx, by) < (ar + br) and aid != bid then
 		return true
@@ -299,7 +310,7 @@ function collisionCheck(ax, ay, bx, by, ar, br, aid, bid)
 end
 
 -- ENEMY
-function spawnenemy(pos,type)
+function spawnEnemy(pos,type)
 	local enemy = {}
 	if type == "alien" then
 		enemy = { 
@@ -343,7 +354,7 @@ function updateEvents(state,events)
 
 	each (newProjs, function (i)
 		add(lstate.projectiles, i.object)
-		local object = spawngfx("flare",i.object.x,i.object.y)
+		local object = spawnGfx("flare",i.object.x,i.object.y)
 		add(lstate.animations,object)
 	end)
 
@@ -352,7 +363,7 @@ function updateEvents(state,events)
 	end)
 
 	each (collisions, function (i)
-			local object = spawngfx("projcol",i.object.x,i.object.y)
+			local object = spawnGfx("projcol",i.object.x,i.object.y)
 			add(lstate.animations,object)
 	end)
 	return lstate
@@ -370,7 +381,7 @@ function updateAnims(animations)
 	return lanims2
 end
 
-function spawngfx(type, lx, ly)
+function spawnGfx(type, lx, ly)
 	gfx = {}
 	if type == "flare" then
 		gfx = {
@@ -411,8 +422,8 @@ end
 --DRAW FUNCTIONS BELOW
 function _draw()
 	cls()
-	draw_player(state.players[2],0,60,-16)
-	draw_player(state.players[1],68,128,-112)
+	drawPlayer(state.players[2],0,60,-16)
+	drawPlayer(state.players[1],68,128,-112)
 	clip()
 	camera(0,0)
 	rect(-1,61,128,67,5)
@@ -425,12 +436,12 @@ function _draw()
 
 end
 
-function draw_player(p,y1,y2,yoffset)
+function drawPlayer(p,y1,y2,yoffset)
 	clip(0,y1,128,y2)
 	camera(p.cam.x-64,p.cam.y+yoffset)
 	pal()
 	
-	draw_stars(p)
+	drawStars(p)
 	local lbounds = const.bounds
 	local cambounds = {x1 = p.cam.x-64, x2 = p.cam.x+64, y1 = p.cam.y+y1+yoffset, y2 = p.cam.y+y2+yoffset}
 	local box = const.bounds[p.id]
@@ -460,7 +471,7 @@ function draw_player(p,y1,y2,yoffset)
 		if outOfBounds(proj,cambounds) then 
 			local x = mid((proj.x),p.cam.x-64,p.cam.x+63)
 		 	local y = mid((proj.y),p.cam.y+y1+yoffset,p.cam.y+y2+yoffset-1)
-			 if every(30) then circfill(x,y,0,8) end
+			if every(30) then circfill(x,y,0,8) end
 		else
 			spr(16,proj.x-proj.rad,proj.y-proj.rad)
 		end
@@ -492,7 +503,7 @@ function draw_player(p,y1,y2,yoffset)
 	end
 end
 
-function draw_stars(p)
+function drawStars(p)
 	local starcolors = {5,6,7}
 	for l = 1,#const.stars do
 		for s in all(const.stars[l]) do
