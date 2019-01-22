@@ -423,14 +423,16 @@ function spawnGfx(type, lx, ly)
 			runtime = 10,
 			x = lx,
 			y = ly,
+			rotation = rnd(1),
 			gfx = function(a)
 				local clrs = {7,14,11}
 				if a.x != nil then
 					for i = 1,8 do
 						local rad = i/8
-						local x2 = a.x + cos(rad) * a.frame
-						local y2 = a.y + sin(rad) * a.frame
+						local x2 = a.x + cos(rad+a.rotation) * (a.frame *0.9)
+						local y2 = a.y + sin(rad+a.rotation) * (a.frame *0.9)
 						line(a.x,a.y,x2,y2,clrs[flr(rnd(4))])
+						circfill(a.x,a.y,i/3,0)
 					end
 				end
 			end	
