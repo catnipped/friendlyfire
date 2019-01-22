@@ -24,7 +24,7 @@ function _init()
 			{ id = 1, 
 				x = 100, 
 				y = 100, 
-				rad = 4 , 
+				rad = 9, 
 				vx = 0, 
 				vy = 0,
 				cam = {
@@ -38,7 +38,7 @@ function _init()
 			{ id = 2, 
 				x = 0, 
 				y = 0, 
-				rad = 4, 
+				rad = 9, 
 				vx = 0, 
 				vy = 0, 
 				cam = {
@@ -258,15 +258,14 @@ function updateEnemies(e, time, events)
 end
 
 function updateProjectiles(projs, events, players, enemies)
-	local lprojs = projs
-	if #lprojs > 0 then
-		lprojs = funmap(lprojs, function(lproj)
+	local lprojs = {}
+	if #projs > 0 then
+		lprojs = funmap(projs, function(lproj)
 			lproj.x += lproj.vector[1] * lproj.velocity
 			lproj.y += lproj.vector[2] * lproj.velocity
 			local collision = projCollisionCheck(lproj, players, enemies)
 			if collision.x != nil then
 				add(events, {type = "collision", object = collision})
-				printh("delete this")
 			else
 				return lproj
 			end
@@ -375,6 +374,7 @@ function _draw()
 	-- spr(3,113,62)
 	pal()
 	print(stat(1), 104 , 62 , 7)
+
 end
 
 function draw_player(p,y1,y2,yoffset)
@@ -388,10 +388,10 @@ function draw_player(p,y1,y2,yoffset)
 	local box = const.bounds[p.id]
 	if every(2,0) then 
 		for x = box.x,box.x+box.w,50 do
-			line(x,box.y,x,box.y+box.h,3)
+			line(x,box.y,x,box.y+box.h,5)
 		end
 		for y = box.y,box.y+box.h,50 do
-			line(box.x,y,box.x+box.w,y,3)
+			line(box.x,y,box.x+box.w,y,5)
 		end
 		-- rect(box.x,box.y,box.x+box.w,box.y+box.h,11) 
 	end
