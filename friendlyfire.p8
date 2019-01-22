@@ -2,6 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
 
+--INIT AND HELP FUNCTIONS BELOW
 function _init()
 	const = {
 		bounds = {
@@ -117,7 +118,6 @@ function ipairs (a)
   return iter, a, 0
 end
 
-
 function funmap (things, fn)
 	local mapped = {}
 	for index, thing in pairs(things) do
@@ -149,6 +149,7 @@ end
 
 
 -->8
+--UPDATE FUNCTIONS BELOW
 function  _update60()
 	local lstate = state
 	local events = {}
@@ -164,6 +165,7 @@ function  _update60()
 	events = {}
 end
 
+-- PLAYER
 function updatePlayers(p, time, events)
 	local lps = p
 	lps = funmap(lps, function(lp)
@@ -208,6 +210,16 @@ function cooldowntimer(time, p)
 	end
 end
 
+function updateCam(p)
+	local lcam = p.cam
+	local lbounds = const.bounds[p.id]
+	lcam.x = flr(lerp(lcam.x,p.x,0.2))
+	lcam.y = flr(lerp(lcam.y,p.y,0.2))
+	return lcam
+end
+
+
+--PROJECTILE
 function spawnProjectile(p)
 	local proj = { 
 		id = p.id, 
@@ -223,40 +235,6 @@ function spawnProjectile(p)
 	return proj
 end
 
-function spawnenemy(pos,type)
-	local enemy = {}
-	if type == "alien" then
-		enemy = { 
-			id = "alien",
-			hp = 10, 
-			x = pos[1], 
-			y =  pos[2],
-			rad = 6,   
-			vector = {0,0},
-			velocity = 1.2,
-			movement = function(enemy,time)
-				enemy.vector = {sin(time%1),sin(time%1)}
-			end,
-			gfx = function(enemy)
-				if every(20) then circfill(enemy.x,enemy.y,enemy.rad,8) end
-				spr(6,enemy.x-3,enemy.y-4) 
-			end
-		}
-	end
-	return enemy
-end
-
-function updateEnemies(e, time, events)
-	local les = e
-	les = funmap(les, function(le)
-		le.x += le.vector[1] * le.velocity
-		le.y += le.vector[2] * le.velocity
-		le.movement(le,time)
-		return le
-	end)
-	return les
-end
-
 function updateProjectiles(projs, events, players, enemies)
 	local lprojs = {}
 	if #projs > 0 then
@@ -270,10 +248,12 @@ function updateProjectiles(projs, events, players, enemies)
 				return lproj
 			end
 		end)
-		each(lprojs, function (i)
-			if outOfBounds(i,const.limits) then del(lprojs,i) end
+		lprojs = filter(lprojs, function (i)
+			return outOfBounds(i,const.limits) == false
 		end)
-		while #lprojs > 100 do del(lprojs,lprojs[1]) end
+		lprojs = filter(lprojs, function (i)
+			return #lprojs < 100
+		end)
 	end
 	return lprojs
 end
@@ -318,13 +298,42 @@ function collisionCheck(ax, ay, bx, by, ar, br, aid, bid)
 	end
 end
 
-function updateCam(p)
-	local lcam = p.cam
-	local lbounds = const.bounds[p.id]
-	lcam.x = flr(lerp(lcam.x,p.x,0.2))
-	lcam.y = flr(lerp(lcam.y,p.y,0.2))
-	return lcam
+-- ENEMY
+function spawnenemy(pos,type)
+	local enemy = {}
+	if type == "alien" then
+		enemy = { 
+			id = "alien",
+			hp = 10, 
+			x = pos[1], 
+			y =  pos[2],
+			rad = 6,   
+			vector = {0,0},
+			velocity = 1.2,
+			movement = function(enemy,time)
+				enemy.vector = {sin(time%1),sin(time%1)}
+			end,
+			gfx = function(enemy)
+				if every(20) then circfill(enemy.x,enemy.y,enemy.rad,8) end
+				spr(6,enemy.x-3,enemy.y-4) 
+			end
+		}
+	end
+	return enemy
 end
+
+function updateEnemies(e, time, events)
+	local les = e
+	les = funmap(les, function(le)
+		le.x += le.vector[1] * le.velocity
+		le.y += le.vector[2] * le.velocity
+		le.movement(le,time)
+		return le
+	end)
+	return les
+end
+
+--EVENTS
 
 function updateEvents(state,events)
 	local lstate = state
@@ -349,6 +358,7 @@ function updateEvents(state,events)
 	return lstate
 end
 
+--ANIMATION
 function updateAnims(animations)
 	local lanims = animations
 	for i in all(lanims) do
@@ -360,7 +370,45 @@ function updateAnims(animations)
 	return lanims2
 end
 
+function spawngfx(type, lx, ly)
+	gfx = {}
+	if type == "flare" then
+		gfx = {
+			frame = 0,
+			runtime = 5,
+			x = lx,
+			y = ly,
+			gfx = function(gfx)
+				local clr = 7
+				if every(3,0,2) then clr = 8 end
+				circfill(gfx.x,gfx.y,4-gfx.frame/2,clr)
+			end	
+		}
+	end
+	if type == "projcol" then
+		gfx = {
+			frame = 0,
+			runtime = 10,
+			x = lx,
+			y = ly,
+			gfx = function(a)
+				local clrs = {7,14,11}
+				if a.x != nil then
+					for i = 1,8 do
+						local rad = i/8
+						local x2 = a.x + cos(rad) * a.frame
+						local y2 = a.y + sin(rad) * a.frame
+						line(a.x,a.y,x2,y2,clrs[flr(rnd(4))])
+					end
+				end
+			end	
+		}
+	end
+	return gfx
+end
+
 -->8
+--DRAW FUNCTIONS BELOW
 function _draw()
 	cls()
 	draw_player(state.players[2],0,60,-16)
@@ -460,42 +508,7 @@ function drawScore (score, x, y)
 	end
 end
 
-function spawngfx(type, lx, ly)
-	gfx = {}
-	if type == "flare" then
-		gfx = {
-			frame = 0,
-			runtime = 5,
-			x = lx,
-			y = ly,
-			gfx = function(gfx)
-				local clr = 7
-				if every(3,0,2) then clr = 8 end
-				circfill(gfx.x,gfx.y,4-gfx.frame/2,clr)
-			end	
-		}
-	end
-	if type == "projcol" then
-		gfx = {
-			frame = 0,
-			runtime = 10,
-			x = lx,
-			y = ly,
-			gfx = function(a)
-				local clrs = {7,14,11}
-				if a.x != nil then
-					for i = 1,8 do
-						local rad = i/8
-						local x2 = a.x + cos(rad) * a.frame
-						local y2 = a.y + sin(rad) * a.frame
-						line(a.x,a.y,x2,y2,clrs[flr(rnd(4))])
-					end
-				end
-			end	
-		}
-	end
-	return gfx
-end
+
 __gfx__
 000000000000000000000000000000000000000000000000007770000077000007700000000000000000000000000000bbbb0000bbbbb0008888800000000000
 00000000000000000000000007707700000000000000000007777700077e70007e8700000000000000000000000000000bbb00000bbbb0008808800000000000
