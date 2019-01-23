@@ -172,9 +172,7 @@ function cleanUp(state)
 	-- 	return i.death == true
 	-- end)
 	lstate.projectiles = filter(state.projectiles, function(i)
-
-			return i.death == false
-		
+		return i.death == false
 	end)
 
 	return lstate
@@ -233,6 +231,7 @@ function updateCam(p)
 	return lcam
 end
 
+-- COLLISIONS
 function returnCollisions(events, state)
 	local levents = {}
 	each(state.projectiles, function(i)
@@ -246,6 +245,14 @@ function returnCollisions(events, state)
 		add(levents,i)
 	end
 	return levents
+end
+
+function collisionCheck(ax, ay, bx, by, ar, br, aid, bid)
+	if pythagoras(ax, ay, bx, by) < (ar + br) and aid != bid then
+		return true
+	else 
+		return false
+	end
 end
 
 function projCollisionCheck(proj,players,enemies)
@@ -322,13 +329,6 @@ function outOfBounds(object,limits)
 	end
 end
 
-function collisionCheck(ax, ay, bx, by, ar, br, aid, bid)
-	if pythagoras(ax, ay, bx, by) < (ar + br) and aid != bid then
-		return true
-	else 
-		return false
-	end
-end
 
 -- ENEMY
 function spawnEnemy(pos,type)
@@ -420,19 +420,19 @@ function spawnGfx(type, lx, ly)
 	if type == "projcol" then
 		gfx = {
 			frame = 0,
-			runtime = 10,
+			runtime = 5+rnd(5),
 			x = lx,
 			y = ly,
 			rotation = rnd(1),
 			gfx = function(a)
 				local clrs = {7,14,11}
 				if a.x != nil then
-					for i = 1,8 do
-						local rad = i/8
+					for i = 1,7 do
+						local rad = i/7
 						local x2 = a.x + cos(rad+a.rotation) * (a.frame *0.9)
 						local y2 = a.y + sin(rad+a.rotation) * (a.frame *0.9)
 						line(a.x,a.y,x2,y2,clrs[flr(rnd(4))])
-						circfill(a.x,a.y,i/3,0)
+						-- circfill(a.x,a.y,1,0)
 					end
 				end
 			end	
