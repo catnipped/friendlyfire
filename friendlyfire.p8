@@ -574,7 +574,8 @@ function drawUI()
 		spr(3,128-i*8,62)
 	end
 	pal()
-	print(stat(1), 4 , 4 , stat(1)*10)
+	local percent = flr(stat(1)*100)
+	print(percent .. "%", 4 , 4 , stat(1)*10)
 	
 end
 
