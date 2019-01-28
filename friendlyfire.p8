@@ -269,11 +269,7 @@ function returncollisions(events, state)
 end
 
 function collisioncheck(ax, ay, bx, by, ar, br)
-	if pythagoras(ax, ay, bx, by) < (ar + br)  then
-		return true
-	else 
-		return false
-	end
+	return pythagoras(ax, ay, bx, by) < (ar + br)
 end
 
 function projcollisioncheck(proj,players,enemies)
@@ -344,12 +340,7 @@ function updateprojectiles(projs)
 end
 
 function outofbounds(object,limits)
-	if object.x > limits.x2 or object.x < limits.x1 or 
-	object.y > limits.y2 or object.y < limits.y1 then
-		return true
-	else
-		return false
-	end
+	return (object.x > limits.x2) or (object.x < limits.x1) or (object.y > limits.y2) or (object.y < limits.y1) 
 end
 
 
@@ -411,14 +402,14 @@ function updateenemies(e, time, events)
 	local les = e
 	les = funmap(les, function(le)
 		each(les, function(i)
-			if i ~= le and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
+			if (i ~= le) and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
 				local vector = normalizedvectora2b(le,i,le.vector)
 				le.x -= vector[1] * (le.velocity *3)
 				le.y -= vector[2] * (le.velocity *3)
 			end
 		end)
 		each(state.players, function(i)
-			if i ~= le and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
+			if (i ~= le) and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
 				local vector = normalizedvectora2b(le,i,le.vector)
 				le.x -= vector[1] * (le.velocity *3)
 				le.y -= vector[2] * (le.velocity *3)
