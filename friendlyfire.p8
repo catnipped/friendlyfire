@@ -94,6 +94,10 @@ end
 function pythagoras(ax,ay,bx,by)
   local px = bx-ax
   local py = by-ay
+
+  if abs(px) > 127 or abs(py) > 127 then
+    return 100
+  end
   return sqrt(px*px + py*py)
 end
 
@@ -619,7 +623,6 @@ function drawui()
 	--debug
 	local percent = flr(stat(1)*100)
 	print(percent .. "%", 4 , 4 , stat(1)*10)
-	
 end
 
 
