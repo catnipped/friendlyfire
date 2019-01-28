@@ -2,19 +2,19 @@ pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
 
--- TODO
--- • enemy behavior patterns
--- • enemy shoot
--- • damage system (collision)
--- • shield system
--- • dash
--- • wave system
--- • design wave 1-10
--- • menu 
--- • highscores
--- • UI
+-- todo
+-- �█� enemy behavior patterns
+-- �█� enemy shoot
+-- �█� damage system (collision)
+-- �█� shield system
+-- �█� dash
+-- �█� wave system
+-- �█� design wave 1-10
+-- �█� menu 
+-- �█� highscores
+-- �█� ui
 
---INIT AND HELP FUNCTIONS BELOW
+--init and help functions below
 function _init()
 	const = {
 		bounds = {
@@ -28,7 +28,7 @@ function _init()
 			up = {0,-1},
 			down = {0,1}
 		},
-		stars = initStars(64,3)
+		stars = initstars(64,3)
 	}
 	const = protect(const)
 	state = {
@@ -46,7 +46,7 @@ function _init()
 					y = 0
 				},
 				shield = true, 
-				shieldRad = 9, 
+				shieldrad = 9, 
 				projdir = const.vector.up, 
 				cooldown = -1, 
 				rateoffire = {0,0.2} 
@@ -62,7 +62,7 @@ function _init()
 					y = 0
 				},
 				shield = true,
-				shieldRad = 9, 
+				shieldrad = 9, 
 				projdir = const.vector.down, 
 				cooldown = -1, 
 				rateoffire = {0,0.2} 
@@ -75,11 +75,11 @@ function _init()
 	}
 	printh("init")
 	for i = 1,4 do
-		add(state.enemies, spawnEnemy({rnd(100),rnd(100)},"alien"))
+		add(state.enemies, spawnenemy({rnd(100),rnd(100)},"alien"))
 	end
 end
 
-function initStars(a,layer)
+function initstars(a,layer)
 	local stars = {}
 	for i = 1,layer do
 		local l = {}
@@ -97,7 +97,7 @@ function pythagoras(ax,ay,bx,by)
   return sqrt(px*px + py*py)
 end
 
-function vectorNormalize(vector)
+function vectornormalize(vector)
 		local lvector = {0,0}
 		local len = sqrt(vector[1] * vector[1] + vector[2] * vector[2])
     if len ~= 0 and len ~= 1 then
@@ -167,24 +167,27 @@ end
 
 
 -->8
---UPDATE FUNCTIONS BELOW
+--update functions below
 function  _update60()
 	local lstate = state
 	local events = {}
-	lstate.players = updatePlayers(lstate.players, lstate.time, events)
-	lstate.enemies = updateEnemies(lstate.enemies, lstate.time, events)
-	lstate.projectiles = updateProjectiles(lstate.projectiles)
-	events = returnCollisions(events,lstate)
-	events = updateEvents(lstate,events)
-	lstate.animations = updateAnims(lstate.animations)
-	lstate = cleanUp(lstate)
+	lstate.players = updateplayers(lstate.players, lstate.time, events)
+	lstate.enemies = updateenemies(lstate.enemies, lstate.time, events)
+	lstate.projectiles = updateprojectiles(lstate.projectiles)
+	events = returncollisions(events,lstate)
+	events = updateevents(lstate,events)
+	lstate.animations = updateanims(lstate.animations)
+	lstate = cleanup(lstate)
 	lstate.time += 1/60
 	if every(rnd(60)) then lstate.score += flr(rnd(10)) end
 	state = lstate
 	events = {}
+	if state.enemies[1].x > 300 then 
+		printh(state.players[1].x .. "/" .. state.players[1].y) 
+	end
 end
 
-function cleanUp(state)
+function cleanup(state)
 	local lstate = state
 	-- lstate.enemies = filter(state.enemies, function(i)
 	-- 	return i.death == true
@@ -196,8 +199,8 @@ function cleanUp(state)
 	return lstate
 end
 
--- PLAYER
-function updatePlayers(p, time, events)
+-- player
+function updateplayers(p, time, events)
 	local lps = p
 	lps = funmap(lps, function(lp)
 		local lbounds = const.bounds[lp.id]
@@ -206,8 +209,8 @@ function updatePlayers(p, time, events)
 		lp.vx = lerp(lp.vx, 0, 0.05)
 		lp.vy = lerp(lp.vy, 0, 0.05)
 
-		if btn(4,lp.id-1) and cooldownTimer(time, lp) then 
-			local lproj = spawnProjectile(lp)
+		if btn(4,lp.id-1) and cooldowntimer(time, lp) then 
+			local lproj = spawnprojectile(lp)
 			lp.cooldown = time
 			lp.rateoffire[1] = lp.rateoffire[2]
 			add(events,{type = "projectile", object = lproj}) 
@@ -227,13 +230,13 @@ function updatePlayers(p, time, events)
 		if lp.y < (lbounds.y) then lp.vy += 0.15 end
 		lp.vy = mid(lp.vy, -4, 4)
 		lp.vx = mid(lp.vx, -4, 4)
-		lp.cam = updateCam(lp)
+		lp.cam = updatecam(lp)
 		return lp
 	end)
 	return lps
 end
 
-function cooldownTimer(time, p)
+function cooldowntimer(time, p)
 	if time - p.cooldown < p.rateoffire[1] then
 		return false
 	else
@@ -241,7 +244,7 @@ function cooldownTimer(time, p)
 	end
 end
 
-function updateCam(p)
+function updatecam(p)
 	local lcam = p.cam
 	local lbounds = const.bounds[p.id]
 	lcam.x = flr(lerp(lcam.x,p.x,0.2))
@@ -249,12 +252,12 @@ function updateCam(p)
 	return lcam
 end
 
--- COLLISIONS
-function returnCollisions(events, state)
+-- collisions
+function returncollisions(events, state)
 	local levents = {}
 	each(state.projectiles, function(i)
-		local collision = projCollisionCheck(i, state.players, state.enemies)
-		if collision != nil then
+		local collision = projcollisioncheck(i, state.players, state.enemies)
+		if collision ~= nil then
 			add(levents, {type = "collision", object = collision})
 		end
 	end)
@@ -265,7 +268,7 @@ function returnCollisions(events, state)
 	return levents
 end
 
-function collisionCheck(ax, ay, bx, by, ar, br)
+function collisioncheck(ax, ay, bx, by, ar, br)
 	if pythagoras(ax, ay, bx, by) < (ar + br)  then
 		return true
 	else 
@@ -273,13 +276,13 @@ function collisionCheck(ax, ay, bx, by, ar, br)
 	end
 end
 
-function projCollisionCheck(proj,players,enemies)
+function projcollisioncheck(proj,players,enemies)
 	collision = nil
 
 	each(players, function(i)
 		local lrad = i.rad
-		if i.shield then lrad = i.shieldRad end
-		if collisionCheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and i.id != proj.id then
+		if i.shield then lrad = i.shieldrad end
+		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) then
 			printh("collision!")
 			collision = {
 				x = proj.x,
@@ -288,7 +291,7 @@ function projCollisionCheck(proj,players,enemies)
 		end
 	end)
 	each(enemies, function(i)
-		if collisionCheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad) and i.id != proj.id then
+		if collisioncheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad) and (i.id ~= proj.id) then
 			printh("collision!")
 			collision = {
 				x = proj.x,
@@ -299,8 +302,8 @@ function projCollisionCheck(proj,players,enemies)
 	return collision
 end
 
--- PROJECTILE
-function spawnProjectile(p)
+-- projectile
+function spawnprojectile(p)
 	local proj = { 
 		id = p.id, 
 		x = p.x, 
@@ -316,13 +319,13 @@ function spawnProjectile(p)
 	return proj
 end
 
-function updateProjectiles(projs)
+function updateprojectiles(projs)
 	local lprojs = {}
 	if #projs > 0 then
 		lprojs = funmap(projs, function(lproj)
 			lproj.x += lproj.vector[1] * lproj.velocity
 			lproj.y += lproj.vector[2] * lproj.velocity
-			local collision = projCollisionCheck(lproj, state.players, state.enemies)
+			local collision = projcollisioncheck(lproj, state.players, state.enemies)
 			if collision == nil then
 				lproj.death = false
 			else
@@ -331,7 +334,7 @@ function updateProjectiles(projs)
 			return lproj
 		end)
 		lprojs = filter(lprojs, function (i)
-			return outOfBounds(i,const.limits) == false
+			return outofbounds(i,const.limits) == false
 		end)
 		lprojs = filter(lprojs, function (i)
 			return #lprojs < 100
@@ -340,7 +343,7 @@ function updateProjectiles(projs)
 	return lprojs
 end
 
-function outOfBounds(object,limits)
+function outofbounds(object,limits)
 	if object.x > limits.x2 or object.x < limits.x1 or 
 	object.y > limits.y2 or object.y < limits.y1 then
 		return true
@@ -350,12 +353,12 @@ function outOfBounds(object,limits)
 end
 
 
--- ENEMY
-function spawnEnemy(pos,type,state)
+-- enemy
+function spawnenemy(pos,type,state)
 	local enemy = {}
 	if type == "alien" then
 		enemy = { 
-			id = "alien",
+			id = 3,
 			hp = 10, 
 			x = pos[1], 
 			y =  pos[2],
@@ -364,11 +367,11 @@ function spawnEnemy(pos,type,state)
 			velocity = 0.3,
 			movement = function(enemy,time)
 				
-				local closestPlayer = getClosestPlayer(enemy.x,enemy.y)
-				local directionOfPlayer = normalizedVectorA2B(enemy,closestPlayer,enemy.vector)
+				local closestplayer = getclosestplayer(enemy.x,enemy.y)
+				local directionofplayer = normalizedvectora2b(enemy,closestplayer,enemy.vector)
 				enemy.vector = {
-					lerp(enemy.vector[1],directionOfPlayer[1],0.01),
-					lerp(enemy.vector[2],directionOfPlayer[2],0.01),
+					lerp(enemy.vector[1],directionofplayer[1],0.01),
+					lerp(enemy.vector[2],directionofplayer[2],0.01),
 				}
 	--			enemy.vector = {sin(time%1),sin(time%1)}
 			end,
@@ -381,7 +384,7 @@ function spawnEnemy(pos,type,state)
 	return enemy
 end
 
-function getClosestPlayer(x,y)
+function getclosestplayer(x,y)
 	local p = {x = 0, y = 0}
 	local p1 = state.players[1]
 	local p2 = state.players[2]
@@ -396,27 +399,27 @@ function getClosestPlayer(x,y)
 	return p
 end
 
-function normalizedVectorA2B(entityA,entityB,vector)
-	local magnitude = abs(pythagoras(entityA.x,entityA.y,entityB.x,entityB.y))
+function normalizedvectora2b(entitya,entityb,vector)
+	local magnitude = abs(pythagoras(entitya.x,entitya.y,entityb.x,entityb.y))
 	if magnitude > 0 then
-		vector = {(entityB.x-entityA.x)/magnitude,(entityB.y-entityA.y)/magnitude}
+		vector = {(entityb.x-entitya.x)/magnitude,(entityb.y-entitya.y)/magnitude}
 	end
 	return vector
 end
 
-function updateEnemies(e, time, events)
+function updateenemies(e, time, events)
 	local les = e
 	les = funmap(les, function(le)
 		each(les, function(i)
-			if i != le and collisionCheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
-				local vector = normalizedVectorA2B(le,i,le.vector)
+			if i ~= le and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
+				local vector = normalizedvectora2b(le,i,le.vector)
 				le.x -= vector[1] * (le.velocity *3)
 				le.y -= vector[2] * (le.velocity *3)
 			end
 		end)
 		each(state.players, function(i)
-			if i != le and collisionCheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
-				local vector = normalizedVectorA2B(le,i,le.vector)
+			if i ~= le and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
+				local vector = normalizedvectora2b(le,i,le.vector)
 				le.x -= vector[1] * (le.velocity *3)
 				le.y -= vector[2] * (le.velocity *3)
 			end
@@ -431,17 +434,17 @@ function updateEnemies(e, time, events)
 	return les
 end
 
---EVENTS
+--events
 
-function updateEvents(state,events)
+function updateevents(state,events)
 	local lstate = state
-	local newProjs = filter(events, function (i) 
+	local newprojs = filter(events, function (i) 
 		return i.type == "projectile"
 	end)
 
-	each (newProjs, function (i)
+	each (newprojs, function (i)
 		add(lstate.projectiles, i.object)
-		local object = spawnGfx("flare",i.object.x,i.object.y)
+		local object = spawngfx("flare",i.object.x,i.object.y)
 		add(lstate.animations,object)
 	end)
 
@@ -450,14 +453,14 @@ function updateEvents(state,events)
 	end)
 
 	each (collisions, function (i)
-			local object = spawnGfx("projcol",i.object.x,i.object.y)
+			local object = spawngfx("projcol",i.object.x,i.object.y)
 			add(lstate.animations,object)
 	end)
 	return lstate
 end
 
---ANIMATION
-function updateAnims(animations)
+--animation
+function updateanims(animations)
 	local lanims = animations
 	for i in all(lanims) do
 		i.frame += 1
@@ -468,7 +471,7 @@ function updateAnims(animations)
 	return lanims2
 end
 
-function spawnGfx(type, lx, ly)
+function spawngfx(type, lx, ly)
 	gfx = {}
 	if type == "flare" then
 		gfx = {
@@ -492,7 +495,7 @@ function spawnGfx(type, lx, ly)
 			rotation = rnd(1),
 			gfx = function(a)
 				local clrs = {7,14,11}
-				if a.x != nil then
+				if a.x ~= nil then
 					for i = 1,7 do
 						local rad = i/7
 						local x2 = a.x + cos(rad+a.rotation) * (a.frame *0.9)
@@ -508,40 +511,40 @@ function spawnGfx(type, lx, ly)
 end
 
 -->8
---DRAW FUNCTIONS BELOW
+--draw functions below
 function _draw()
 	cls()
 
-	drawPlayerViewport(state.players[2],0,60,-16)
-	drawPlayerViewport(state.players[1],68,128,-112)
+	drawplayerviewport(state.players[2],0,60,-16)
+	drawplayerviewport(state.players[1],68,128,-112)
 	
 	clip()
 	camera(0,0)
 	
-	drawUI()
+	drawui()
 end
 
-function drawPlayerViewport(p,y1,y2,yoffset)
+function drawplayerviewport(p,y1,y2,yoffset)
 	clip(0,y1,128,y2)
 	camera(p.cam.x-64,p.cam.y+yoffset)
 	pal()
 	
 	local cambounds = {x1 = p.cam.x-64, x2 = p.cam.x+64, y1 = p.cam.y+y1+yoffset, y2 = p.cam.y+y2+yoffset}
 
-	drawStars(p)
-	drawGrid(p)
-	drawEnemies(p,cambounds,y1,y2,yoffset)
-	drawProjectiles(p,cambounds,y1,y2,yoffset)
+	drawstars(p)
+	drawgrid(p)
+	drawenemies(p,cambounds,y1,y2,yoffset)
+	drawprojectiles(p,cambounds,y1,y2,yoffset)
 	for anim in all(state.animations) do
 		anim.gfx(anim)
 	end
 	for player in all(state.players) do
-		drawPlayer(player, p, y1, y2, yoffset)
+		drawplayer(player, p, y1, y2, yoffset)
 	end
 	pal()
 end
 
-function drawStars(p)
+function drawstars(p)
 	local starcolors = {5,6,7}
 	for l = 1,#const.stars do
 		for s in all(const.stars[l]) do
@@ -550,7 +553,7 @@ function drawStars(p)
 	end
 end
 
-function drawGrid(p)
+function drawgrid(p)
 	local box = const.bounds[p.id]
 		if every(2,0) then 
 			for x = box.x,box.x+box.w,50 do
@@ -564,9 +567,9 @@ function drawGrid(p)
 		-- if every(30,3,5) then rect(box.x,box.y,box.x+box.w,box.y+box.h,14) end
 end		
 
-function drawEnemies(p, cambounds,y1,y2,yoffset)
+function drawenemies(p, cambounds,y1,y2,yoffset)
 	for enemy in all(state.enemies) do
-		if outOfBounds(enemy,cambounds) then 
+		if outofbounds(enemy,cambounds) then 
 			local x = mid((enemy.x),p.cam.x-64,p.cam.x+59)
 			local y = mid((enemy.y),p.cam.y+y1+yoffset+1,p.cam.y+y2+yoffset-4)
 			if every(60,0,40) then spr(14,x,y) end
@@ -575,14 +578,14 @@ function drawEnemies(p, cambounds,y1,y2,yoffset)
 	end
 end
 
-function drawPlayer (p1,p2,y1,y2,yoffset)
+function drawplayer (p1,p2,y1,y2,yoffset)
 	local flipy = false
-	if p2 != p1 then
+	if p2 ~= p1 then
 		local x = mid((p1.x),p2.cam.x-64,p2.cam.x+59)
 		local y = flr(mid((p1.y),p2.cam.y+y1+yoffset+1,p2.cam.y+y2+yoffset-4))
 		if every(60,0,40) then spr(11+p1.id,x,y) end
 	end
-	if every(4,0,2) and p1.shield then circ(p1.x,p1.y,p1.shieldRad,3) end
+	if every(4,0,2) and p1.shield then circ(p1.x,p1.y,p1.shieldrad,3) end
 	if p1.id == 2 then flipy = true end
 	if btn(0,p1.id-1) then
 		spr(2,p1.x-3,p1.y-8,1,2,true,flipy)
@@ -593,11 +596,11 @@ function drawPlayer (p1,p2,y1,y2,yoffset)
 	end
 end
 
-function drawProjectiles(p,cambounds,y1,y2,yoffset)
+function drawprojectiles(p,cambounds,y1,y2,yoffset)
 	if every(3,0,2) then pal(7,8) end
 	for proj in all(state.projectiles) do
 		
-		if outOfBounds(proj,cambounds) then 
+		if outofbounds(proj,cambounds) then 
 			local x = mid((proj.x),p.cam.x-64,p.cam.x+63)
 		 	local y = mid((proj.y),p.cam.y+y1+yoffset,p.cam.y+y2+yoffset-1)
 			if every(30) then circfill(x,y,0,8) end
@@ -608,16 +611,16 @@ function drawProjectiles(p,cambounds,y1,y2,yoffset)
 	pal()
 end
 
-function drawScore (score, x, y)
+function drawscore (score, x, y)
  for n = 1,#score do
     local nr = 0 .. sub(score, n,n)
    	 spr(32+nr,((n-1)*10)+x,y)
 	end
 end
 
-function drawUI()
+function drawui()
 	rect(-1,61,128,67,5)
-	drawScore("" .. state.score ,4,60)
+	drawscore("" .. state.score ,4,60)
 	for i = 1,state.lives do 
 		spr(3,128-i*8,62)
 	end
@@ -631,9 +634,9 @@ end
 
 __gfx__
 000000000000000000000000000000000000000000000000007770000077000007700000000000000000000000000000bbbb0000bbbbb0008888800000000000
-00000000000000000000000007707700000000000000000007777700077e70007e8700000000000000000000000000000bbb00000bbbb0008808800000000000
-00700700000700000007000075777000000000000000000078777870777ee700780700000000000000000000000000000bbb0000bbbb00008888800000000000
-000770000077700000777000077077000000000000000000788788707ee8870007700000000000000000000000000000bbbbb000bbbbb0008808800000000000
+00000000000000000000000007770700000000000000000007777700077e70007e8700000000000000000000000000000bbb00000bbbb0008808800000000000
+00700700000700000007000077577000000000000000000078777870777ee700780700000000000000000000000000000bbb0000bbbb00008888800000000000
+000770000077700000777000077707000000000000000000788788707ee8870007700000000000000000000000000000bbbbb000bbbbb0008808800000000000
 0007700000777000007770000000000000000000000000007887887007e870000000000000000000000000000000000000000000000000000000000000000000
 00700700077577000777570000000000000000000000000007878700007700000000000000000000000000000000000000000000000000000000000000000000
 00000000075557000775550000000000000000000000000007777700000000000000000000000000000000000000000000000000000000000000000000000000
