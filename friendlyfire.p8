@@ -3,14 +3,15 @@ version 16
 __lua__
 
 -- TODO
--- • enemy movement patterns
+-- • enemy behavior patterns
 -- • enemy shoot
--- • damage system
+-- • damage system (collision)
 -- • shield system
+-- • dash
 -- • wave system
 -- • menu 
 -- • highscores
--- • UI cleanup
+-- • UI
 
 --INIT AND HELP FUNCTIONS BELOW
 function _init()
@@ -36,7 +37,7 @@ function _init()
 			{ id = 1, 
 				x = 100, 
 				y = 100, 
-				rad = 9, 
+				rad = 2, 
 				vx = 0, 
 				vy = 0,
 				cam = {
@@ -44,6 +45,7 @@ function _init()
 					y = 0
 				},
 				shield = true, 
+				shieldRad = 9, 
 				projdir = const.vector.up, 
 				cooldown = -1, 
 				rateoffire = {0,0.2} 
@@ -51,14 +53,15 @@ function _init()
 			{ id = 2, 
 				x = 0, 
 				y = 0, 
-				rad = 9, 
+				rad = 2, 
 				vx = 0, 
 				vy = 0, 
 				cam = {
 					x = 0,
 					y = 0
 				},
-				shield = true, 
+				shield = true,
+				shieldRad = 9, 
 				projdir = const.vector.down, 
 				cooldown = -1, 
 				rateoffire = {0,0.2} 
@@ -174,7 +177,7 @@ function  _update60()
 	lstate.animations = updateAnims(lstate.animations)
 	lstate = cleanUp(lstate)
 	lstate.time += 1/60
-	if every(10) then lstate.score += flr(rnd(10)) end
+	if every(rnd(60)) then lstate.score += flr(rnd(10)) end
 	state = lstate
 	events = {}
 end
@@ -272,7 +275,9 @@ function projCollisionCheck(proj,players,enemies)
 	collision = nil
 
 	each(players, function(i)
-		if collisionCheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad,i.id,proj.id) then
+		local lrad = i.rad
+		if i.shield then lrad = i.shieldRad end
+		if collisionCheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad,i.id,proj.id) then
 			printh("collision!")
 			collision = {
 				x = proj.x,
@@ -485,6 +490,7 @@ function drawPlayerViewport(p,y1,y2,yoffset)
 	for player in all(state.players) do
 		drawPlayer(player, p, y1, y2, yoffset)
 	end
+	pal()
 end
 
 function drawStars(p)
@@ -528,7 +534,7 @@ function drawPlayer (p1,p2,y1,y2,yoffset)
 		local y = flr(mid((p1.y),p2.cam.y+y1+yoffset+1,p2.cam.y+y2+yoffset-4))
 		if every(60,0,40) then spr(11+p1.id,x,y) end
 	end
-	if every(4,0,2) and p1.shield then circ(p1.x,p1.y,9,3) end
+	if every(4,0,2) and p1.shield then circ(p1.x,p1.y,p1.shieldRad,3) end
 	if p1.id == 2 then flipy = true end
 	if btn(0,p1.id-1) then
 		spr(2,p1.x-3,p1.y-8,1,2,true,flipy)
@@ -552,27 +558,24 @@ function drawProjectiles(p,cambounds,y1,y2,yoffset)
 		end
 	end
 	pal()
-	
-	pal()
 end
 
 function drawScore (score, x, y)
  for n = 1,#score do
     local nr = 0 .. sub(score, n,n)
-	
    	 spr(32+nr,((n-1)*10)+x,y)
-		
 	end
 end
 
 function drawUI()
 	rect(-1,61,128,67,5)
-	-- pal(7,0)
 	drawScore("" .. state.score ,4,60)
-	-- spr(3,120,62)
-	-- spr(3,113,62)
+	for i = 1,state.lives do 
+		spr(3,128-i*8,62)
+	end
 	pal()
-	print(stat(1), 104 , 62 , 7)
+	print(stat(1), 4 , 4 , stat(1)*10)
+	
 end
 
 
