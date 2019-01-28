@@ -2,6 +2,16 @@ pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
 
+-- TODO
+-- • enemy movement patterns
+-- • enemy shoot
+-- • damage system
+-- • shield system
+-- • wave system
+-- • menu 
+-- • highscores
+-- • UI cleanup
+
 --INIT AND HELP FUNCTIONS BELOW
 function _init()
 	const = {
@@ -21,6 +31,7 @@ function _init()
 	const = protect(const)
 	state = {
 		score = 0,
+		lives = 3,
 		players = {
 			{ id = 1, 
 				x = 100, 
@@ -31,7 +42,8 @@ function _init()
 				cam = {
 					x = 0,
 					y = 0
-				}, 
+				},
+				shield = true, 
 				projdir = const.vector.up, 
 				cooldown = -1, 
 				rateoffire = {0,0.2} 
@@ -45,7 +57,8 @@ function _init()
 				cam = {
 					x = 0,
 					y = 0
-				}, 
+				},
+				shield = true, 
 				projdir = const.vector.down, 
 				cooldown = -1, 
 				rateoffire = {0,0.2} 
@@ -445,18 +458,14 @@ end
 --DRAW FUNCTIONS BELOW
 function _draw()
 	cls()
+
 	drawPlayerViewport(state.players[2],0,60,-16)
 	drawPlayerViewport(state.players[1],68,128,-112)
+	
 	clip()
 	camera(0,0)
-	rect(-1,61,128,67,5)
-	-- pal(7,0)
-	drawScore("" .. state.score ,4,60)
-	-- spr(3,120,62)
-	-- spr(3,113,62)
-	pal()
-	print(stat(1), 104 , 62 , 7)
-
+	
+	drawUI()
 end
 
 function drawPlayerViewport(p,y1,y2,yoffset)
@@ -464,65 +473,17 @@ function drawPlayerViewport(p,y1,y2,yoffset)
 	camera(p.cam.x-64,p.cam.y+yoffset)
 	pal()
 	
-	drawStars(p)
-	local lbounds = const.bounds
 	local cambounds = {x1 = p.cam.x-64, x2 = p.cam.x+64, y1 = p.cam.y+y1+yoffset, y2 = p.cam.y+y2+yoffset}
-	local box = const.bounds[p.id]
-	if every(2,0) then 
-		for x = box.x,box.x+box.w,50 do
-			line(x,box.y,x,box.y+box.h,5)
-		end
-		for y = box.y,box.y+box.h,50 do
-			line(box.x,y,box.x+box.w,y,5)
-		end
-		-- rect(box.x,box.y,box.x+box.w,box.y+box.h,11) 
-	end
-	-- if every(30,3,5) then rect(box.x,box.y,box.x+box.w,box.y+box.h,14) end
-	
-	for enemy in all(state.enemies) do
-		if outOfBounds(enemy,cambounds) then 
-			local x = mid((enemy.x),p.cam.x-64,p.cam.x+59)
-			local y = mid((enemy.y),p.cam.y+y1+yoffset+1,p.cam.y+y2+yoffset-4)
-			if every(60,0,40) then spr(14,x,y) end
-		end
-		enemy.gfx(enemy)
-	end
 
-	if every(3,0,2) then pal(7,8) end
-	for proj in all(state.projectiles) do
-		
-		if outOfBounds(proj,cambounds) then 
-			local x = mid((proj.x),p.cam.x-64,p.cam.x+63)
-		 	local y = mid((proj.y),p.cam.y+y1+yoffset,p.cam.y+y2+yoffset-1)
-			if every(30) then circfill(x,y,0,8) end
-		else
-			spr(16,proj.x-proj.rad,proj.y-proj.rad)
-		end
-	end
-	pal()
+	drawStars(p)
+	drawGrid(p)
+	drawEnemies(p,cambounds,y1,y2,yoffset)
+	drawProjectiles(p,cambounds,y1,y2,yoffset)
 	for anim in all(state.animations) do
 		anim.gfx(anim)
 	end
-
-
-	pal()
-	for p2 in all(state.players) do
-		local lp = p2
-		local flipy = false
-		if lp != p then
-			local x = mid((lp.x),p.cam.x-64,p.cam.x+59)
-			local y = flr(mid((lp.y),p.cam.y+y1+yoffset+1,p.cam.y+y2+yoffset-4))
-			if every(60,0,40) then spr(11+lp.id,x,y) end
-		end
-		if every(4,0,2) then circ(lp.x,lp.y,9,3) end
-		if lp.id == 2 then flipy = true end
-		if btn(0,lp.id-1) then
-			spr(2,lp.x-3,lp.y-8,1,2,true,flipy)
-		elseif btn(1,lp.id-1) then
-			spr(2,lp.x-3,lp.y-8,1,2,false,flipy)
-		else
-			spr(1,lp.x-3,lp.y-8,1,2,false,flipy)
-		end
+	for player in all(state.players) do
+		drawPlayer(player, p, y1, y2, yoffset)
 	end
 end
 
@@ -535,11 +496,83 @@ function drawStars(p)
 	end
 end
 
+function drawGrid(p)
+	local box = const.bounds[p.id]
+		if every(2,0) then 
+			for x = box.x,box.x+box.w,50 do
+				line(x,box.y,x,box.y+box.h,5)
+			end
+			for y = box.y,box.y+box.h,50 do
+				line(box.x,y,box.x+box.w,y,5)
+			end
+			-- rect(box.x,box.y,box.x+box.w,box.y+box.h,11) 
+		end
+		-- if every(30,3,5) then rect(box.x,box.y,box.x+box.w,box.y+box.h,14) end
+end		
+
+function drawEnemies(p, cambounds,y1,y2,yoffset)
+	for enemy in all(state.enemies) do
+		if outOfBounds(enemy,cambounds) then 
+			local x = mid((enemy.x),p.cam.x-64,p.cam.x+59)
+			local y = mid((enemy.y),p.cam.y+y1+yoffset+1,p.cam.y+y2+yoffset-4)
+			if every(60,0,40) then spr(14,x,y) end
+		end
+		enemy.gfx(enemy)
+	end
+end
+
+function drawPlayer (p1,p2,y1,y2,yoffset)
+	local flipy = false
+	if p2 != p1 then
+		local x = mid((p1.x),p2.cam.x-64,p2.cam.x+59)
+		local y = flr(mid((p1.y),p2.cam.y+y1+yoffset+1,p2.cam.y+y2+yoffset-4))
+		if every(60,0,40) then spr(11+p1.id,x,y) end
+	end
+	if every(4,0,2) and p1.shield then circ(p1.x,p1.y,9,3) end
+	if p1.id == 2 then flipy = true end
+	if btn(0,p1.id-1) then
+		spr(2,p1.x-3,p1.y-8,1,2,true,flipy)
+	elseif btn(1,p1.id-1) then
+		spr(2,p1.x-3,p1.y-8,1,2,false,flipy)
+	else
+		spr(1,p1.x-3,p1.y-8,1,2,false,flipy)
+	end
+end
+
+function drawProjectiles(p,cambounds,y1,y2,yoffset)
+	if every(3,0,2) then pal(7,8) end
+	for proj in all(state.projectiles) do
+		
+		if outOfBounds(proj,cambounds) then 
+			local x = mid((proj.x),p.cam.x-64,p.cam.x+63)
+		 	local y = mid((proj.y),p.cam.y+y1+yoffset,p.cam.y+y2+yoffset-1)
+			if every(30) then circfill(x,y,0,8) end
+		else
+			spr(16,proj.x-proj.rad,proj.y-proj.rad)
+		end
+	end
+	pal()
+	
+	pal()
+end
+
 function drawScore (score, x, y)
  for n = 1,#score do
     local nr = 0 .. sub(score, n,n)
-    spr(32+nr,((n-1)*10)+x,y)
+	
+   	 spr(32+nr,((n-1)*10)+x,y)
+		
 	end
+end
+
+function drawUI()
+	rect(-1,61,128,67,5)
+	-- pal(7,0)
+	drawScore("" .. state.score ,4,60)
+	-- spr(3,120,62)
+	-- spr(3,113,62)
+	pal()
+	print(stat(1), 104 , 62 , 7)
 end
 
 
