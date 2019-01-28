@@ -263,8 +263,8 @@ function returnCollisions(events, state)
 	return levents
 end
 
-function collisionCheck(ax, ay, bx, by, ar, br, aid, bid)
-	if pythagoras(ax, ay, bx, by) < (ar + br) and aid != bid then
+function collisionCheck(ax, ay, bx, by, ar, br)
+	if pythagoras(ax, ay, bx, by) < (ar + br)  then
 		return true
 	else 
 		return false
@@ -277,7 +277,7 @@ function projCollisionCheck(proj,players,enemies)
 	each(players, function(i)
 		local lrad = i.rad
 		if i.shield then lrad = i.shieldRad end
-		if collisionCheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad,i.id,proj.id) then
+		if collisionCheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and i.id != proj.id then
 			printh("collision!")
 			collision = {
 				x = proj.x,
@@ -286,7 +286,7 @@ function projCollisionCheck(proj,players,enemies)
 		end
 	end)
 	each(enemies, function(i)
-		if collisionCheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad,i.id,proj.id) then
+		if collisionCheck(i.x,i.y,proj.x,proj.y,i.rad,proj.rad) and i.id != proj.id then
 			printh("collision!")
 			collision = {
 				x = proj.x,
@@ -349,7 +349,7 @@ end
 
 
 -- ENEMY
-function spawnEnemy(pos,type)
+function spawnEnemy(pos,type,state)
 	local enemy = {}
 	if type == "alien" then
 		enemy = { 
@@ -359,9 +359,16 @@ function spawnEnemy(pos,type)
 			y =  pos[2],
 			rad = 6,   
 			vector = {0,0},
-			velocity = 1.2,
+			velocity = 0.3,
 			movement = function(enemy,time)
-				enemy.vector = {sin(time%1),sin(time%1)}
+				
+				local closestPlayer = getClosestPlayer(enemy.x,enemy.y)
+				local directionOfPlayer = normalizedVector(enemy,closestPlayer,enemy.vector)
+				enemy.vector = {
+					lerp(enemy.vector[1],directionOfPlayer[1],0.01),
+					lerp(enemy.vector[2],directionOfPlayer[2],0.01),
+				}
+	--			enemy.vector = {sin(time%1),sin(time%1)}
 			end,
 			gfx = function(enemy)
 				if every(20) then circfill(enemy.x,enemy.y,enemy.rad,8) end
@@ -372,11 +379,45 @@ function spawnEnemy(pos,type)
 	return enemy
 end
 
+function getClosestPlayer(x,y)
+	local p = nil
+	local p1 = state.players[1]
+	local p2 = state.players[2]
+	local distance1 = (p1.x+p1.y)-(x+y)
+	local distance2 = (p2.x+p2.y)-(x+y)
+	if distance1 < distance2 then
+		p = p1
+	else
+		p = p2
+	end
+	return p
+end
+
+function normalizedVector(entityA,entityB,vector)
+	local magnitude = pythagoras(entityA.x,entityA.y,entityB.x,entityB.y)
+	if magnitude > 0 then
+		vector = {(entityB.x-entityA.x)/magnitude,(entityB.y-entityA.y)/magnitude}
+	end
+	return vector
+end
+
 function updateEnemies(e, time, events)
 	local les = e
 	les = funmap(les, function(le)
-		le.x += le.vector[1] * le.velocity
-		le.y += le.vector[2] * le.velocity
+		local collided = funmap(les, function(i)
+			if i != le then
+				printh(collisionCheck(le.x, le.y, i.x, i.y, le.rad, i.rad))
+				return collisionCheck(le.x, le.y, i.x, i.y, le.rad, i.rad)
+			end
+		end)
+		if collided[1] then
+			le.x += le.vector[1] * -le.velocity
+			le.y += le.vector[2] * -le.velocity
+		else
+			le.x += le.vector[1] * le.velocity
+			
+			le.y += le.vector[2] * le.velocity
+		end
 		le.movement(le,time)
 		return le
 	end)
@@ -574,6 +615,7 @@ function drawUI()
 		spr(3,128-i*8,62)
 	end
 	pal()
+	--debug
 	local percent = flr(stat(1)*100)
 	print(percent .. "%", 4 , 4 , stat(1)*10)
 	
