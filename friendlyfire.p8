@@ -9,6 +9,7 @@ __lua__
 -- • shield system
 -- • dash
 -- • wave system
+-- • design wave 1-10
 -- • menu 
 -- • highscores
 -- • UI
@@ -37,7 +38,7 @@ function _init()
 			{ id = 1, 
 				x = 100, 
 				y = 100, 
-				rad = 2, 
+				rad = 3, 
 				vx = 0, 
 				vy = 0,
 				cam = {
@@ -53,7 +54,7 @@ function _init()
 			{ id = 2, 
 				x = 0, 
 				y = 0, 
-				rad = 2, 
+				rad = 3, 
 				vx = 0, 
 				vy = 0, 
 				cam = {
@@ -73,8 +74,9 @@ function _init()
 		time = 0
 	}
 	printh("init")
-	state.enemies[1] = spawnEnemy({64,64},"alien")
-	state.enemies[2] = spawnEnemy({89,45},"alien")
+	for i = 1,4 do
+		add(state.enemies, spawnEnemy({rnd(100),rnd(100)},"alien"))
+	end
 end
 
 function initStars(a,layer)
@@ -363,7 +365,7 @@ function spawnEnemy(pos,type,state)
 			movement = function(enemy,time)
 				
 				local closestPlayer = getClosestPlayer(enemy.x,enemy.y)
-				local directionOfPlayer = normalizedVector(enemy,closestPlayer,enemy.vector)
+				local directionOfPlayer = normalizedVectorA2B(enemy,closestPlayer,enemy.vector)
 				enemy.vector = {
 					lerp(enemy.vector[1],directionOfPlayer[1],0.01),
 					lerp(enemy.vector[2],directionOfPlayer[2],0.01),
@@ -380,21 +382,22 @@ function spawnEnemy(pos,type,state)
 end
 
 function getClosestPlayer(x,y)
-	local p = nil
+	local p = {x = 0, y = 0}
 	local p1 = state.players[1]
 	local p2 = state.players[2]
-	local distance1 = (p1.x+p1.y)-(x+y)
-	local distance2 = (p2.x+p2.y)-(x+y)
+	local distance1 = abs((p1.x+p1.y)-(x+y))
+	local distance2 = abs((p2.x+p2.y)-(x+y))
+
 	if distance1 < distance2 then
 		p = p1
-	else
+	elseif distance2 < distance1 then
 		p = p2
 	end
 	return p
 end
 
-function normalizedVector(entityA,entityB,vector)
-	local magnitude = pythagoras(entityA.x,entityA.y,entityB.x,entityB.y)
+function normalizedVectorA2B(entityA,entityB,vector)
+	local magnitude = abs(pythagoras(entityA.x,entityA.y,entityB.x,entityB.y))
 	if magnitude > 0 then
 		vector = {(entityB.x-entityA.x)/magnitude,(entityB.y-entityA.y)/magnitude}
 	end
@@ -404,20 +407,24 @@ end
 function updateEnemies(e, time, events)
 	local les = e
 	les = funmap(les, function(le)
-		local collided = funmap(les, function(i)
-			if i != le then
-				printh(collisionCheck(le.x, le.y, i.x, i.y, le.rad, i.rad))
-				return collisionCheck(le.x, le.y, i.x, i.y, le.rad, i.rad)
+		each(les, function(i)
+			if i != le and collisionCheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
+				local vector = normalizedVectorA2B(le,i,le.vector)
+				le.x -= vector[1] * (le.velocity *3)
+				le.y -= vector[2] * (le.velocity *3)
 			end
 		end)
-		if collided[1] then
-			le.x += le.vector[1] * -le.velocity
-			le.y += le.vector[2] * -le.velocity
-		else
-			le.x += le.vector[1] * le.velocity
-			
-			le.y += le.vector[2] * le.velocity
-		end
+		each(state.players, function(i)
+			if i != le and collisionCheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
+				local vector = normalizedVectorA2B(le,i,le.vector)
+				le.x -= vector[1] * (le.velocity *3)
+				le.y -= vector[2] * (le.velocity *3)
+			end
+		end)
+		
+		le.x += le.vector[1] * le.velocity
+		le.y += le.vector[2] * le.velocity
+		
 		le.movement(le,time)
 		return le
 	end)
