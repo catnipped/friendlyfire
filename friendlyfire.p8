@@ -6,6 +6,7 @@ __lua__
 -- �█� enemy behavior patterns
 -- �█� enemy shoot
 -- �█� damage system (collision)
+-- collision partitioning
 -- �█� shield system
 -- �█� dash
 -- �█� wave system
@@ -91,25 +92,25 @@ function initstars(a,layer)
 	return stars
 end
 
-function pythagoras(ax,ay,bx,by)
-  local px = bx-ax
-  local py = by-ay
+function pythagorish(ax,ay,bx,by)
+  local px = (bx-ax) * 0.001
+  local py = (by-ay) * 0.001
 
   if abs(px) > 127 or abs(py) > 127 then
     return 100
   end
-  return sqrt(px*px + py*py)
+  return (px*px + py*py)
 end
 
-function vectornormalize(vector)
-		local lvector = {0,0}
-		local len = sqrt(vector[1] * vector[1] + vector[2] * vector[2])
-    if len ~= 0 and len ~= 1 then
-        lvector[1] = vector[1] / len
-        lvector[2] = vector[2] / len
-    end
-		return lvector
-end
+-- function vectornormalize(vector)
+-- 		local lvector = {0,0}
+-- 		local len = sqrt(vector[1] * vector[1] + vector[2] * vector[2])
+--     if len ~= 0 and len ~= 1 then
+--         lvector[1] = vector[1] / len
+--         lvector[2] = vector[2] / len
+--     end
+-- 		return lvector
+-- end
 
 function every(duration,offset,period)
 	local frames = flr(state.time * 60)
@@ -273,7 +274,8 @@ function returncollisions(events, state)
 end
 
 function collisioncheck(ax, ay, bx, by, ar, br)
-	return pythagoras(ax, ay, bx, by) < (ar + br)
+	local length = min(ar+br,101)*0.001
+	return pythagorish(ax, ay, bx, by) < (length^2)
 end
 
 function projcollisioncheck(proj,players,enemies)
@@ -395,7 +397,7 @@ function getclosestplayer(x,y)
 end
 
 function normalizedvectora2b(entitya,entityb,vector)
-	local magnitude = abs(pythagoras(entitya.x,entitya.y,entityb.x,entityb.y))
+	local magnitude = abs(sqrt(pythagorish(entitya.x,entitya.y,entityb.x,entityb.y))) * 1000
 	if magnitude > 0 then
 		vector = {(entityb.x-entitya.x)/magnitude,(entityb.y-entitya.y)/magnitude}
 	end
