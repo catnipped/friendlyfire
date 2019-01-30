@@ -15,15 +15,188 @@ __lua__
 -- �█� highscores
 -- �█� ui
 
+-- ------------------------------------------------
+-- constants
+-- ------------------------------------------------
+
+nw = 1
+ne = 2
+sw = 3
+se = 4
+
+-- ------------------------------------------------
+-- local variables
+-- ------------------------------------------------
+
+maxlevels = 15
+maxobjects = 3
+
+-- ------------------------------------------------
+-- constructor
+-- ------------------------------------------------
+
+---
+-- creates a new node of the quadtree.
+-- @param level - the level of depth of the node.
+-- @param x - the position of the node on the x-axis.
+-- @param y - the position of the node on the y-axis.
+-- @param w - the width of the node.
+-- @param h - the height of the node.
+--
+
+local quadtree = {}
+
+function quadtree:new( level, x, y, w, h )
+	local self = {}
+	local mx, my = x + ( w * 0.5 ), y + ( h * 0.5 )
+	local objects = {}
+
+	local split = false
+	local nodes
+
+	-- ------------------------------------------------
+	-- private functions
+	-- ------------------------------------------------
+
+	---
+	-- determines in which subnode the given coordinates are
+	-- contained and returns the corresponding index.
+	-- @param cx - center along the x-axis of the node.
+	-- @param cy - center along the y-axis of the node.
+	-- @param nx - the x-coordinate to check.
+	-- @param ny - the y-coordinate to check.
+	--
+	local function determineindex( cx, cy, nx, ny )
+		if nx <= cx and ny <= cy then
+			return nw
+		elseif nx <= cx and ny > cy then
+			return sw
+		elseif nx > cx and ny <= cy then
+			return ne
+		elseif nx > cx and ny > cy then
+			return se
+		end
+	end
+
+	---
+	-- divides the current node and creates four subnodes
+	-- if they haven't been created yet.
+	--
+	local function divide( nx, ny, nw, nh )
+		nw, nh = nw * 0.5, nh * 0.5;
+		if not nodes then
+			nodes = {}
+			nodes[nw] = quadtree:new( level + 1, nx,      ny,      nw, nh )
+			nodes[ne] = quadtree:new( level + 1, nx + nw, ny,      nw, nh )
+			nodes[sw] = quadtree:new( level + 1, nx,      ny + nh, nw, nh )
+			nodes[se] = quadtree:new( level + 1, nx + nw, ny + nh, nw, nh )
+		end
+		split = true
+	end
+
+	-- ------------------------------------------------
+	-- public functions
+	-- ------------------------------------------------
+
+	-- clears all references to objects stored in the node.
+	--
+	function self:clear()
+		if split then
+			for i = 1, #nodes do
+				nodes[i]:clear()
+			end
+			split = false;
+		else
+			for i = 1, #objects do
+				objects[i] = nil
+			end
+		end
+	end
+
+	---
+	-- inserts a new object into the node. if the node is already split,
+	-- the object is pushed to one of the subnodes. if it hasn't been split
+	-- yet the object will be added to the current level. the node is split,
+	-- when the amount of objects is bigger than the maximum of allowed
+	-- nodes.
+	-- @param obj
+	-- @param nx
+	-- @param ny
+	--
+	function self:insert( obj, nx, ny )
+		-- if the node is already split add it to one of its children.
+		if split then
+			nodes[determineindex( mx, my, nx, ny )]:insert( obj, nx, ny)
+			return;
+		end
+
+		-- if the node isn't split add the object to its pool.
+		objects[#objects + 1] = obj
+
+		-- if the amount of objects surpasses the maximum amount allowed,
+		-- the node is split and the objects are redistributed among the
+		-- subnodes.
+		printh(#objects .. " / " .. maxobjects)
+		if #objects > maxobjects then
+			printh(level .. " / " .. maxlevels)
+			if level < maxlevels then
+				divide( x, y, w, h )
+
+				local ox, oy
+				for i = 1, #objects do
+					ox, oy = objects[i].x,objects[i].y
+					nodes[determineindex( mx, my, ox, oy )]:insert( objects[i], ox, oy )
+					objects[i] = nil
+				end
+			end
+		end
+	end
+
+	---
+	-- retrieves all objects in the same node as the given coordinates.
+	-- @param nx
+	-- @param ny
+	--
+	function self:retrieve( nx, ny )
+		if split then
+			return nodes[determineindex( mx, my, nx, ny )]:retrieve( nx, ny );
+		end
+		return objects;
+	end
+
+	---
+	-- sets the dimensions of the node.
+	-- @param nw
+	-- @param nh
+	--
+	function self:updatedimensions( nx, ny, nw, nh )
+		-- update upvalues.
+		x, y, w, h = nx, ny, nw, nh
+		mx, my = x + (w * 0.5), y + (h * 0.5)
+
+		-- update child nodes.
+		if nodes then
+			nx, ny, nw, nh = x, y, w * 0.5, h * 0.5;
+			nodes[nw]:updatedimensions( nx,      ny,      nw, nh )
+			nodes[ne]:updatedimensions( nx + nw, ny,      nw, nh )
+			nodes[sw]:updatedimensions( nx,      ny + nh, nw, nh )
+			nodes[se]:updatedimensions( nx + nw, ny + nh, nw, nh )
+		end
+	end
+
+	return self;
+end
+
 --init and help functions below
 function _init()
+ 	sectors = quadtree:new(0,0,0,100,100)
 	const = {
 		bounds = {
-			{x = -100, y = 64, w = 200, h = 100},
-			{x = -100, y = -64, w = 200, h = 100}
+			{x = 200, y = 350, w = 200, h = 100},
+			{x = 200, y = 200, w = 200, h = 100}
 		},
 		limits = {
-			x1 = -200, x2 = 300, y1 = -200, y2 = 200
+			x1 = 100, x2 = 600, y1 = 100, y2 = 550
 		},
 		vector = {
 			up = {0,-1},
@@ -31,20 +204,22 @@ function _init()
 		},
 		stars = initstars(64,3)
 	}
+
 	const = protect(const)
+
 	state = {
 		score = 0,
 		lives = 3,
 		players = {
 			{ id = 1, 
-				x = 100, 
-				y = 100, 
+				x = const.bounds[1].x+100, 
+				y = const.bounds[1].y+50, 
 				rad = 3, 
 				vx = 0, 
 				vy = 0,
 				cam = {
-					x = 0,
-					y = 0
+					x = const.bounds[1].x+100, 
+					y = const.bounds[1].y+50, 
 				},
 				shield = true, 
 				shieldrad = 9, 
@@ -53,14 +228,14 @@ function _init()
 				rateoffire = {0,0.2} 
 			},
 			{ id = 2, 
-				x = 0, 
-				y = 0, 
+				x = const.bounds[2].x+100, 
+				y = const.bounds[2].y+50,  
 				rad = 3, 
 				vx = 0, 
 				vy = 0, 
 				cam = {
-					x = 0,
-					y = 0
+					x = const.bounds[2].x+100, 
+					y = const.bounds[2].y+50, 
 				},
 				shield = true,
 				shieldrad = 9, 
@@ -72,11 +247,12 @@ function _init()
 		enemies = {},
 		projectiles = {},
 		animations = {},
-		time = 0
+		time = 0,
 	}
+	
 	printh("init")
-	for i = 1,4 do
-		add(state.enemies, spawnenemy({rnd(100),rnd(100)},"alien"))
+	for i = 1,16 do
+		add(state.enemies, spawnenemy({const.bounds[1].x + rnd(200),const.bounds[1].y + rnd(200)},"alien"))
 	end
 end
 
@@ -179,6 +355,12 @@ function  _update60()
 	lstate.players = updateplayers(lstate.players, lstate.time, events)
 	lstate.enemies = updateenemies(lstate.enemies, lstate.time, events)
 	lstate.projectiles = updateprojectiles(lstate.projectiles)
+
+	sectors:clear()
+	sectors = updatequadtree(sectors, lstate.players)
+	sectors = updatequadtree(sectors, lstate.enemies)
+	sectors = updatequadtree(sectors, lstate.projectiles)
+	printh(#sectors:retrieve(lstate.players[1].x,lstate.players[1].y))
 	events = returncollisions(events,lstate)
 	events = updateevents(lstate,events)
 	lstate.animations = updateanims(lstate.animations)
@@ -186,11 +368,46 @@ function  _update60()
 	lstate.time += 1/60
 	if every(rnd(60)) then lstate.score += flr(rnd(10)) end
 	state = lstate
-	events = {}
-	if state.enemies[1].x > 300 then 
-		printh(state.players[1].x .. "/" .. state.players[1].y) 
-	end
+--	printh("memory: ".. (stat(0)/1024))
 end
+
+-- function initsectors(width,height)
+-- 	local sectors = {}
+-- 	for x = -width,width do
+-- 		sectors[x] = {}
+-- 		for y = -height,height do
+-- 			sectors[x][y] = {}
+-- 		end
+-- 	end
+-- 	return sectors
+-- end
+
+-- function updatesectors(sectors, entities)
+-- 	for i in all(entities) do
+-- 		local sector = isinsector({i.x,i.y})
+-- 		if sectors[sector[1]] == nil then
+-- 			sectors[sector[2]] = {}
+-- 		end
+-- 		if sectors[sector[1]][sector[2]] == nil then
+-- 			sectors[sector[1]][sector[2]] = {}
+-- 		end
+-- 		add(sectors[sector[1]][sector[2]],i)
+-- 	end
+-- 	return sectors
+-- end
+
+-- function isinsector(vector)
+-- 	return {flr(vector[1]/50),flr(vector[2]/50)}
+-- end
+
+function updatequadtree(tree,entities)
+	for i in all(entities) do
+		tree:insert(i,i.x,i.y)
+	end
+	return tree
+end
+
+
 
 function cleanup(state)
 	local lstate = state
