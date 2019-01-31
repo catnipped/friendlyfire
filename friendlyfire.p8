@@ -194,6 +194,9 @@ function  _update60()
 	lstate.animations = updateanims(lstate.animations)
 	lstate = cleanup(lstate)
 	lstate.time += 1/60
+	if every(rnd(1000)) and #lstate.enemies < 8 then
+		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien"))
+	end
 	if every(rnd(60)) then lstate.score += flr(rnd(10)) end
 	state = lstate
 --	printh("memory: ".. (stat(0)/1024))
@@ -352,6 +355,7 @@ function projcollisioncheck(proj,sectors)
 			collision = {
 				x = proj.x,
 				y = proj.y,
+				hit = i
 			}
 		end
 	end)
@@ -500,6 +504,9 @@ function updateevents(state,events)
 
 	each (collisions, function (i)
 			local object = spawngfx("projcol",i.object.x,i.object.y)
+		
+			del(lstate.enemies,i.object.hit)
+		
 			add(lstate.animations,object)
 	end)
 	return lstate
