@@ -504,9 +504,11 @@ function updateevents(state,events)
 
 	each (collisions, function (i)
 			local object = spawngfx("projcol",i.object.x,i.object.y)
-		
+
 			del(lstate.enemies,i.object.hit)
-		
+			if i.object.hit == lstate.players[1] or i.object.hit == lstate.players[1] then
+				lstate.score = 0
+			end
 			add(lstate.animations,object)
 	end)
 	return lstate
