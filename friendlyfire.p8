@@ -319,9 +319,14 @@ end
 function returncollisions(events, state, sectors)
 	local levents = {}
 	each(state.projectiles, function(i)
-		local collision = projcollisioncheck(i, sectors)
-		if collision ~= nil then
-			add(levents, {type = "collision", object = collision})
+		if every(4,(isinsector(i.x,i.y)[2] % 4)) then
+			local collision = projcollisioncheck(i, sectors)
+			if collision ~= nil then
+				i.death = true
+				add(levents, {type = "collision", object = collision})
+			else
+				i.death = false
+			end
 		end
 	end)
 	
@@ -377,12 +382,6 @@ function updateprojectiles(projs, sectors)
 		lprojs = funmap(projs, function(lproj)
 			lproj.x += lproj.vector[1] * lproj.velocity
 			lproj.y += lproj.vector[2] * lproj.velocity
-			local collision = projcollisioncheck(lproj, sectors)
-			if collision == nil then
-				lproj.death = false
-			else
-				lproj.death = true
-			end
 			return lproj
 		end)
 		lprojs = filter(lprojs, function (i)
