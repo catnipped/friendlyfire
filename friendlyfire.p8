@@ -6,7 +6,6 @@ __lua__
 --  enemy behavior patterns
 --  enemy shoot
 --  damage system (collision)
---  collision partitioning
 --	shield system
 --  dash
 --  wave system
@@ -15,192 +14,9 @@ __lua__
 --  highscores
 --  ui
 
--- constants
--- ------------------------------------------------
-
-nw = 1
-ne = 2
-sw = 3
-se = 4
-
--- ------------------------------------------------
--- local variables
--- ------------------------------------------------
-
-maxlevels = 10
-maxobjects = 5
-
--- ------------------------------------------------
--- constructor
--- ------------------------------------------------
-
----
--- creates a new node of the quadtree.
--- @param level - the level of depth of the node.
--- @param x - the position of the node on the x-axis.
--- @param y - the position of the node on the y-axis.
--- @param w - the width of the node.
--- @param h - the height of the node.
---
-
-local quadtree = {}
-
-function quadtree:new( level, x, y, w, h )
-	local self = {}
-	local mx, my = x + ( w * 0.5 ), y + ( h * 0.5 )
-	local objects = {}
-
-	local split = false
-	local nodes
-
-	-- ------------------------------------------------
-	-- private functions
-	-- ------------------------------------------------
-
-	---
-	-- determines in which subnode the given coordinates are
-	-- contained and returns the corresponding index.
-	-- @param cx - center along the x-axis of the node.
-	-- @param cy - center along the y-axis of the node.
-	-- @param nx - the x-coordinate to check.
-	-- @param ny - the y-coordinate to check.
-	--
-	
-	local function determineindex( cx, cy, nx, ny )
-		if nx <= cx and ny <= cy then
-			return nw
-		elseif nx <= cx and ny > cy then
-			return sw
-		elseif nx > cx and ny <= cy then
-			return ne
-		elseif nx > cx and ny > cy then
-			return se
-		end
-	end
-
-	---
-	-- divides the current node and creates four subnodes
-	-- if they haven't been created yet.
-	--
-	local function divide( nx, ny, nw, nh )
-	--	printh("dividing")
-		nw, nh = nw * 0.5, nh * 0.5;
-		if not nodes then
-			nodes = {}
-			nodes[nw] = quadtree:new( level + 1, nx,      ny,      nw, nh )
-			nodes[ne] = quadtree:new( level + 1, nx + nw, ny,      nw, nh )
-			nodes[sw] = quadtree:new( level + 1, nx,      ny + nh, nw, nh )
-			nodes[se] = quadtree:new( level + 1, nx + nw, ny + nh, nw, nh )
-		end
-		split = true
-	end
-
-	-- ------------------------------------------------
-	-- public functions
-	-- ------------------------------------------------
-
-	-- clears all references to objects stored in the node.
-	--
-	function self:clear()
-		if split then
-			for i = 1, #nodes do
-				nodes[i]:clear()
-			end
-			split = false;
-		else
-			for i = 1, #objects do
-				objects[i] = nil
-			end
-		end
-	end
-
-	---
-	-- inserts a new object into the node. if the node is already split,
-	-- the object is pushed to one of the subnodes. if it hasn't been split
-	-- yet the object will be added to the current level. the node is split,
-	-- when the amount of objects is bigger than the maximum of allowed
-	-- nodes.
-	-- @param obj
-	-- @param nx
-	-- @param ny
-	--
-	function self:insert( obj, nx, ny )
-		-- if the node is already split add it to one of its children.
-		if split then
-			nodes[determineindex( mx, my, nx, ny )]:insert( obj, nx, ny)
-			return;
-		end
-
-		-- if the node isn't split add the object to its pool.
-		objects[#objects + 1] = obj
-
-		-- if the amount of objects surpasses the maximum amount allowed,
-		-- the node is split and the objects are redistributed among the
-		-- subnodes.
-	--	printh(#objects .. " / " .. maxobjects)
-		if #objects > maxobjects then
-		--	printh(level .. " / " .. maxlevels)
-			if level < maxlevels then
-				divide( x, y, w, h )
-
-				local ox, oy
-				for i = 1, #objects do
-					ox, oy = objects[i].x,objects[i].y
-					nodes[determineindex( mx, my, ox, oy )]:insert( objects[i], ox, oy )
-					objects[i] = nil
-				end
-			end
-		end
-	end
-
-	---
-	-- retrieves all objects in the same node as the given coordinates.
-	-- @param nx
-	-- @param ny
-	--
-	function self:retrieve( nx, ny )
-		if split then
-			return nodes[determineindex( mx, my, nx, ny )]:retrieve( nx, ny );
-		end
-		return objects
-	end
-
-	function self:delete( obj, ox, oy )
-		if split then
-			nodes[determineindex( mx, my, ox, oy )]:delete(obj, ox, oy );
-		else
-			for i = 1, #objects do
-				if objects[i] == obj then objects[i] = nil end
-			end
-		end
-	end
-
-	---
-	-- sets the dimensions of the node.
-	-- @param nw
-	-- @param nh
-	--
-	function self:updatedimensions( nx, ny, nw, nh )
-		-- update upvalues.
-		x, y, w, h = nx, ny, nw, nh
-		mx, my = x + (w * 0.5), y + (h * 0.5)
-
-		-- update child nodes.
-		if nodes then
-			nx, ny, nw, nh = x, y, w * 0.5, h * 0.5;
-			nodes[nw]:updatedimensions( nx,      ny,      nw, nh )
-			nodes[ne]:updatedimensions( nx + nw, ny,      nw, nh )
-			nodes[sw]:updatedimensions( nx,      ny + nh, nw, nh )
-			nodes[se]:updatedimensions( nx + nw, ny + nh, nw, nh )
-		end
-	end
-
-	return self;
-end
 
 --init and help functions below
 function _init()
- 	sectors = quadtree:new(0,0,0,100,100)
 	const = {
 		bounds = {
 			{x = 200, y = 350, w = 200, h = 100},
@@ -262,10 +78,9 @@ function _init()
 	}
 	
 	printh("init")
-	for i = 1,16 do
-		add(state.enemies, spawnenemy({const.bounds[1].x + rnd(200),const.bounds[1].y + rnd(200)},"alien"))
+	for i = 1,4 do
+		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien"))
 	end
-	sectors = quadtree:new(0,0,0,100,100)
 end
 
 function initstars(a,layer)
@@ -290,15 +105,13 @@ function pythagorish(ax,ay,bx,by)
   return (px*px + py*py)
 end
 
--- function vectornormalize(vector)
--- 		local lvector = {0,0}
--- 		local len = sqrt(vector[1] * vector[1] + vector[2] * vector[2])
---     if len ~= 0 and len ~= 1 then
---         lvector[1] = vector[1] / len
---         lvector[2] = vector[2] / len
---     end
--- 		return lvector
--- end
+function sloppysqrt(x)
+    s=((x/2)+x/(x/2)) / 2
+    for i = 1,3 do
+        s=(s+x/s)/2
+		end
+    return s
+end
 
 function every(duration,offset,period)
 	local frames = flr(state.time * 60)
@@ -364,16 +177,19 @@ end
 function  _update60()
 	local lstate = state
 	local events = {}
-	
-	lstate.players = updateplayers(lstate.players, lstate.time, events)
-	lstate.enemies = updateenemies(lstate.enemies, lstate.time, events)
-	lstate.projectiles = updateprojectiles(lstate.projectiles,sectors)
+	local sectors = initsectors(20,20)
+	sectors = updatesectors(sectors, state.players)
+	sectors = updatesectors(sectors, state.enemies)
+	sectors = updatesectors(sectors, state.projectiles)
 
-	sectors = updatequadtree(sectors, state.players)
-	sectors = updatequadtree(sectors, state.enemies)
-	sectors = updatequadtree(sectors, state.projectiles)
-	printh(#sectors:retrieve(lstate.players[1].x,lstate.players[1].y))
-	events = returncollisions(events,lstate)
+	lstate.players = updateplayers(lstate.players, lstate.time, events, sectors)
+	lstate.enemies = updateenemies(lstate.enemies, lstate.time, events, sectors)
+	lstate.projectiles = updateprojectiles(lstate.projectiles, sectors)
+
+	printh(isinsector(state.players[1].x,state.players[1].y)[1] .. "/" .. isinsector(state.players[1].x,state.players[1].y)[2] )
+	printh(#myneighbours(state.players[1].x,state.players[1].y,sectors))
+
+	events = returncollisions(events,lstate, sectors)
 	events = updateevents(lstate,events)
 	lstate.animations = updateanims(lstate.animations)
 	lstate = cleanup(lstate)
@@ -383,42 +199,56 @@ function  _update60()
 --	printh("memory: ".. (stat(0)/1024))
 end
 
--- function initsectors(width,height)
--- 	local sectors = {}
--- 	for x = -width,width do
--- 		sectors[x] = {}
--- 		for y = -height,height do
--- 			sectors[x][y] = {}
--- 		end
--- 	end
--- 	return sectors
--- end
 
--- function updatesectors(sectors, entities)
--- 	for i in all(entities) do
--- 		local sector = isinsector({i.x,i.y})
--- 		if sectors[sector[1]] == nil then
--- 			sectors[sector[2]] = {}
--- 		end
--- 		if sectors[sector[1]][sector[2]] == nil then
--- 			sectors[sector[1]][sector[2]] = {}
--- 		end
--- 		add(sectors[sector[1]][sector[2]],i)
--- 	end
--- 	return sectors
--- end
-
--- function isinsector(vector)
--- 	return {flr(vector[1]/50),flr(vector[2]/50)}
--- end
-
-function updatequadtree(tree,entities)
-	for i in all(entities) do
-		tree:delete(i,i.x,i.y)
-		tree:insert(i,i.x,i.y)
+-- SECTOR STUFF BELOW
+function initsectors(width,height)
+	local sectors = {}
+	for x = -width,width do
+		sectors[x] = {}
+		for y = -height,height do
+			sectors[x][y] = {}
+		end
 	end
-	return tree
+	return sectors
 end
+
+function updatesectors(sectors, entities)
+	for i in all(entities) do
+		local sector = isinsector(i.x,i.y)
+		if sectors[sector[1]] == nil then
+			sectors[sector[2]] = {}
+		end
+		if sectors[sector[1]][sector[2]] == nil then
+			sectors[sector[1]][sector[2]] = {}
+		end
+		add(sectors[sector[1]][sector[2]],i)
+	end
+	return sectors
+end
+
+function isinsector(x,y)
+	local lx = mid(flr(x/25),-20,20)
+	local ly = mid(flr(y/25),-20,20)
+	return {lx,ly}
+end
+
+function myneighbours(ex,ey,sectors)
+	local vector = isinsector(ex,ey)
+	local entities = {}
+	for x = vector[1]-1,vector[1]+1 do
+		if x > 0 and x < 21 then
+			for y = vector[2]-1,vector[2]+1 do
+				if y > 0 and y < 21 then
+					for i in all(sectors[x][y]) do
+						add(entities,i)
+					end
+				end
+			end
+		end
+	end
+	return entities
+end
+
 
 function cleanup(state)
 	local lstate = state
@@ -443,7 +273,7 @@ function updateplayers(p, time, events)
 		lp.vy = lerp(lp.vy, 0, 0.05)
 
 		if btn(4,lp.id-1) and cooldowntimer(time, lp) then 
-			local lproj = spawnprojectile(lp)
+			local lproj = spawnprojectile(lp,11)
 			lp.cooldown = time
 			lp.rateoffire[1] = lp.rateoffire[2]
 			add(events,{type = "projectile", object = lproj}) 
@@ -486,10 +316,10 @@ function updatecam(p)
 end
 
 -- collisions
-function returncollisions(events, state)
+function returncollisions(events, state, sectors)
 	local levents = {}
 	each(state.projectiles, function(i)
-		local collision = projcollisioncheck(i, state.players, state.enemies)
+		local collision = projcollisioncheck(i, sectors)
 		if collision ~= nil then
 			add(levents, {type = "collision", object = collision})
 		end
@@ -506,9 +336,9 @@ function collisioncheck(ax, ay, bx, by, ar, br)
 	return pythagorish(ax, ay, bx, by) < (length^2)
 end
 
-function projcollisioncheck(proj)
+function projcollisioncheck(proj,sectors)
 	collision = nil
-	local neighbours = sectors:retrieve(proj.x,proj.y)
+	local neighbours = myneighbours(proj.x,proj.y,sectors)
 	each(neighbours, function(i)
 		local lrad = i.rad
 		if i.shield then lrad = i.shieldrad end
@@ -525,7 +355,7 @@ function projcollisioncheck(proj)
 end
 
 -- projectile
-function spawnprojectile(p)
+function spawnprojectile(p,color)
 	local proj = { 
 		id = p.id, 
 		x = p.x, 
@@ -533,7 +363,7 @@ function spawnprojectile(p)
 		rad = 1, 
 		vector = p.projdir,  
 		velocity = 1.2, 
-		gfx = 1,
+		color = color,
 		death = false, 
 	}
 	proj.x += proj.vector[1] * 8
@@ -581,15 +411,20 @@ function spawnenemy(pos,type,state)
 			y =  pos[2],
 			rad = 6,   
 			vector = {0,0},
+			projdir = {0,0},
 			velocity = 0.3,
-			movement = function(enemy,time)
-				
+			movement = function(enemy, time, events)
 				local closestplayer = getclosestplayer(enemy.x,enemy.y)
 				local directionofplayer = normalizedvectora2b(enemy,closestplayer,enemy.vector)
 				enemy.vector = {
 					lerp(enemy.vector[1],directionofplayer[1],0.01),
 					lerp(enemy.vector[2],directionofplayer[2],0.01),
 				}
+				if every(flr(rnd(360+1000))) and stat(1) < 0.9 then
+					enemy.projdir = directionofplayer
+					local lproj = spawnprojectile(enemy,8)
+					add(events,{type = "projectile", object = lproj}) 
+				end
 	--			enemy.vector = {sin(time%1),sin(time%1)}
 			end,
 			gfx = function(enemy)
@@ -616,18 +451,19 @@ function getclosestplayer(x,y)
 	return p
 end
 
+
 function normalizedvectora2b(entitya,entityb,vector)
-	local magnitude = abs(sqrt(pythagorish(entitya.x,entitya.y,entityb.x,entityb.y))) * 1000
+	local magnitude = abs(sloppysqrt(pythagorish(entitya.x,entitya.y,entityb.x,entityb.y))) * 1000
 	if magnitude > 0 then
 		vector = {(entityb.x-entitya.x)/magnitude,(entityb.y-entitya.y)/magnitude}
 	end
 	return vector
 end
 
-function updateenemies(e, time, events)
+function updateenemies(e, time, events, sectors)
 	local les = e
 	les = funmap(les, function(le)
-		local neighbours = sectors:retrieve(le.x,le.y)
+		local neighbours = myneighbours(le.x,le.y,sectors)
 		each(neighbours, function(i)
 			if (i ~= le) and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
 				local vector = normalizedvectora2b(le,i,le.vector)
@@ -639,7 +475,7 @@ function updateenemies(e, time, events)
 		le.x += le.vector[1] * le.velocity
 		le.y += le.vector[2] * le.velocity
 		
-		le.movement(le,time)
+		le.movement(le,time,events)
 		return le
 	end)
 	return les
@@ -692,7 +528,7 @@ function spawngfx(type, lx, ly)
 			y = ly,
 			gfx = function(gfx)
 				local clr = 7
-				if every(3,0,2) then clr = 8 end
+				if every(3,0,2) then clr = 11 end
 				circfill(gfx.x,gfx.y,4-gfx.frame/2,clr)
 			end	
 		}
@@ -808,18 +644,20 @@ function drawplayer (p1,p2,y1,y2,yoffset)
 end
 
 function drawprojectiles(p,cambounds,y1,y2,yoffset)
-	if every(3,0,2) then pal(7,8) end
+	
 	for proj in all(state.projectiles) do
-		
+
 		if outofbounds(proj,cambounds) then 
 			local x = mid((proj.x),p.cam.x-64,p.cam.x+63)
 		 	local y = mid((proj.y),p.cam.y+y1+yoffset,p.cam.y+y2+yoffset-1)
-			if every(30) then circfill(x,y,0,8) end
+			if every(30) then circfill(x,y,0,proj.color) end
 		else
-			spr(16,proj.x-proj.rad,proj.y-proj.rad)
+			local color = 7
+			if every(3,0,2) then color = proj.color end
+			circfill(proj.x,proj.y,proj.rad,color)
 		end
 	end
-	pal()
+	
 end
 
 function drawscore (score, x, y)
