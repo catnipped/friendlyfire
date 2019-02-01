@@ -37,7 +37,8 @@ function _init()
 		score = 0,
 		lives = 3,
 		players = {
-			{ id = 1, 
+			{ id = 1,
+				type = "player", 
 				x = const.bounds[1].x+100, 
 				y = const.bounds[1].y+50, 
 				rad = 3, 
@@ -54,6 +55,7 @@ function _init()
 				rateoffire = {0,0.3} 
 			},
 			{ id = 2, 
+				type = "player",
 				x = const.bounds[2].x+100, 
 				y = const.bounds[2].y+50,  
 				rad = 3, 
@@ -349,7 +351,7 @@ function projcollisioncheck(proj,sectors)
 	each(neighbours, function(i)
 		local lrad = i.rad
 		if i.shield then lrad = i.shieldrad end
-		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) then
+		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" then
 			printh("collision!")
 			collision = {
 				x = proj.x,
@@ -365,10 +367,11 @@ end
 -- projectile
 function spawnprojectile(p,color)
 	local proj = { 
-		id = p.id, 
+		id = p.id,
+		type = "projectile", 
 		x = p.x, 
 		y =  p.y,
-		rad = 1, 
+		rad = 2, 
 		vector = p.projdir,  
 		velocity = 1.2, 
 		color = color,
@@ -408,6 +411,7 @@ function spawnenemy(pos,type,state)
 	if type == "alien" then
 		enemy = { 
 			id = flr(rnd(1000)),
+			type ="enemy",
 			hp = 3, 
 			x = pos[1], 
 			y =  pos[2],
@@ -511,11 +515,11 @@ function updateevents(state,events)
 		local hitgfx = spawngfx("ehit",i.object.hit.x,i.object.hit.y)
 		add(lstate.animations,hitgfx)
 	
-	
-		for e in all(lstate.enemies) do
-			if i.object.hit.id == e.id then
-				e.hp -= 1
-			
+		if i.object.hit.type == "enemy" then
+			for e in all(lstate.enemies) do
+				if i.object.hit.id == e.id then
+					e.hp -= 1
+				end
 			end
 		end
 		if i.object.hit == lstate.players[1] or i.object.hit == lstate.players[2] then
@@ -559,7 +563,7 @@ function spawngfx(type, lx, ly)
 			gfx = function(gfx)
 				local clr = 7
 				if every(3,0,2) then clr = 11 end
-				circfill(gfx.x,gfx.y,4-gfx.frame/2,clr)
+				circfill(gfx.x,gfx.y,6-gfx.frame/2,clr)
 			end	
 		}
 	end
@@ -703,7 +707,7 @@ function drawplayer (p1,p2,y1,y2,yoffset)
 		if every(60,0,40) then spr(11+p1.id,x-1,y-1) end
 		pal()
 	end
-	if every(4,0,2) and p1.shield then circ(p1.x,p1.y,p1.shieldrad,3) end
+	--if every(4,0,2) and p1.shield then circ(p1.x,p1.y,p1.shieldrad,3) end
 	if p1.id == 2 then flipy = true end
 	if btn(0,p1.id-1) then
 		spr(2,p1.x-3,p1.y-8,1,2,true,flipy)
@@ -725,7 +729,7 @@ function drawprojectiles(p,cambounds,y1,y2,yoffset)
 		else
 			local color = 7
 			if every(3,0,2) then color = proj.color end
-			circfill(proj.x,proj.y,proj.rad,color)
+			circfill(proj.x,proj.y,1+flr(rnd(proj.rad)),color)
 		end
 	end
 	
