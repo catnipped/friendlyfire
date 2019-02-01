@@ -351,7 +351,7 @@ function projcollisioncheck(proj,sectors)
 	each(neighbours, function(i)
 		local lrad = i.rad
 		if i.shield then lrad = i.shieldrad end
-		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" then
+		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" and proj.origin ~= i.type  then
 			printh("collision!")
 			collision = {
 				x = proj.x,
@@ -360,7 +360,6 @@ function projcollisioncheck(proj,sectors)
 			}
 		end
 	end)
-
 	return collision
 end
 
@@ -368,7 +367,8 @@ end
 function spawnprojectile(p,color)
 	local proj = { 
 		id = p.id,
-		type = "projectile", 
+		type = "projectile",
+		origin = p.type, 
 		x = p.x, 
 		y =  p.y,
 		rad = 2, 
