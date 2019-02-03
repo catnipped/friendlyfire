@@ -3,8 +3,7 @@ version 16
 __lua__
 
 --todo
---  enemy behavior patterns
---  damage system (collision)
+--  design 3 behavior patterns
 --	shield system
 --  dash
 --  wave system
@@ -80,7 +79,7 @@ function _init()
 	
 	printh("init")
 	for i = 1,4 do
-		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien"))
+		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"asteroid"))
 	end
 end
 
@@ -371,7 +370,7 @@ function spawnprojectile(p,color)
 		origin = p.type, 
 		x = p.x, 
 		y =  p.y,
-		rad = 2, 
+		rad = 1, 
 		vector = p.projdir,  
 		velocity = 1.2, 
 		color = color,
@@ -412,6 +411,7 @@ function spawnenemy(pos,type,state)
 		enemy = { 
 			id = flr(rnd(1000)),
 			type ="enemy",
+			subtype = type,
 			hp = 3, 
 			x = pos[1], 
 			y =  pos[2],
@@ -421,7 +421,7 @@ function spawnenemy(pos,type,state)
 			velocity = 0.3,
 			movement = function(enemy, time, events)
 				local closestplayer = getclosestplayer(enemy.x,enemy.y)
-				local directionofplayer = normalizedvectora2b(enemy,closestplayer,enemy.vector)
+				local directionofplayer = normalizedvectora2b(enemy,closestplayer)
 				enemy.vector = {
 					lerp(enemy.vector[1],directionofplayer[1],0.01),
 					lerp(enemy.vector[2],directionofplayer[2],0.01),
@@ -438,7 +438,94 @@ function spawnenemy(pos,type,state)
 			end
 		}
 	end
+	if type == "asteroid" then
+		enemy = { 
+			id = flr(rnd(1000)),
+			type ="enemy",
+			subtype = type,
+			hp = 6, 
+			x = pos[1], 
+			y =  pos[2],
+			rad = 8,
+			asteroids = {
+				{
+					sprite = flr(rnd(4)),
+					offsetx = flr(rnd(8)-4),
+					offsety = flr(rnd(8)-4),
+					flipx = coinflip(),
+					flipy = coinflip()
+				},
+				{
+					sprite = flr(rnd(4)),
+					offsetx = flr(rnd(8)-4),
+					offsety = flr(rnd(8)-4),
+					flipx = coinflip(),
+					flipy = coinflip()
+				},
+				{
+					sprite = flr(rnd(4)),
+					offsetx = flr(rnd(6)-3),
+					offsety = flr(rnd(6)-3),
+					flipx = coinflip(),
+					flipy = coinflip()
+				},
+				{
+					sprite = flr(rnd(4)),
+					offsetx = flr(rnd(6)-3),
+					offsety = flr(rnd(6)-3),
+					flipx = coinflip(),
+					flipy = coinflip()
+				},
+			},  
+			vector = {rnd(2)-1,rnd(2)-1},
+			projdir = {0,0},
+			velocity = 0.05+rnd(0.2),
+			movement = function(enemy, time, events)
+			end,
+			gfx = function(enemy)
+				palt(15,true)
+				palt(0,false)
+				for a in all(enemy.asteroids) do
+					spr(20+a.sprite,enemy.x+a.offsetx-4,enemy.y+a.offsety-4,1,1,a.flipx,a.flipy)
+				end
+				palt()
+			end
+		}
+	end
+	if type == "asteroidsmall" then
+		enemy = { 
+			id = flr(rnd(1000)),
+			type ="enemy",
+			subtype = type,
+			hp = 3, 
+			x = pos[1]+(rnd(2)-1), 
+			y =  pos[2]+(rnd(2)-1),
+			rad = 4,
+			sprite = flr(rnd(4)),
+			flipx = coinflip(),
+			flipy = coinflip(),  
+			vector = {rnd(2)-1,rnd(2)-1},
+			projdir = {0,0},
+			velocity = 0.05+rnd(0.1),
+			movement = function(enemy, time, events)
+			end,
+			gfx = function(enemy)
+				palt(15,true)
+				palt(0,false)
+				spr(20+enemy.sprite,enemy.x-4,enemy.y-4,1,1,enemy.flipx,enemy.flipy)
+				palt()
+			end
+		}
+	end
 	return enemy
+end
+
+function coinflip()
+ 	if rnd(2) > 1 then
+		return true
+	else
+		return false
+	end	
 end
 
 function getclosestplayer(x,y)
@@ -457,7 +544,7 @@ function getclosestplayer(x,y)
 end
 
 
-function normalizedvectora2b(entitya,entityb,vector)
+function normalizedvectora2b(entitya,entityb)
 	local magnitude = abs(sloppysqrt(pythagorish(entitya.x,entitya.y,entityb.x,entityb.y))) * 1000
 	if magnitude > 0 then
 		vector = {(entityb.x-entitya.x)/magnitude,(entityb.y-entitya.y)/magnitude}
@@ -483,8 +570,12 @@ function updateenemies(e, time, events, sectors)
 		le.movement(le,time,events)
 		if le.hp <= 0 then 
 			add(events,{type="animation", object = spawngfx("explosion",le.x,le.y)})
+			if le.subtype == "asteroid" then
+				for i = 1,3 do
+					add(events,{type="enemy", object = {type = "asteroidsmall",x = le.x, y = le.y}})
+				end
+			end	
 		end
-		
 		return le.hp > 0
 	end)
 	return les
@@ -494,6 +585,15 @@ end
 
 function updateevents(state,events)
 	local lstate = state
+
+	local enemy = filter(events, function (i)
+	return i.type == "enemy"
+	end)
+	each (enemy, function (i)
+	 local e = spawnenemy({i.object.x,i.object.y},i.object.type,state)
+	 add(lstate.enemies,e)
+	end)
+	
 	local newprojs = filter(events, function (i) 
 		return i.type == "projectile"
 	end)
@@ -563,7 +663,7 @@ function spawngfx(type, lx, ly)
 			gfx = function(gfx)
 				local clr = 7
 				if every(3,0,2) then clr = 11 end
-				circfill(gfx.x,gfx.y,6-gfx.frame/2,clr)
+				circfill(gfx.x,gfx.y,4-gfx.frame/2,clr)
 			end	
 		}
 	end
@@ -729,7 +829,7 @@ function drawprojectiles(p,cambounds,y1,y2,yoffset)
 		else
 			local color = 7
 			if every(3,0,2) then color = proj.color end
-			circfill(proj.x,proj.y,1+flr(rnd(proj.rad)),color)
+			circfill(proj.x,proj.y,proj.rad,color)
 		end
 	end
 	
@@ -764,14 +864,14 @@ __gfx__
 007007000775770007775700000000000000000000000000078787000077000000000000000000000000000000000000f00000fff00000fff00f00ff00000000
 000000000755570007755500000000000000000000000000077777000000000000000000000000000000000000000000ffffffffffffffffffffffff00000000
 000000000775770007775700000000000000000000000000007770000000000000000000000000000000000000000000ffffffffffffffffffffffff00000000
-07000000077777000777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-77700000007770000077700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-07000000007770000077700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000077777000077700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000777077700777770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000770007700770770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000700000700700070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07000000077777000777770000000000ff77f0fffff707fffff007fffff777ff0000000000000000000000000000000000000000000000000000000000000000
+77700000007770000077700000000000f7007f0ffff7707fff77707fff70007f0000000000000000000000000000000000000000000000000000000000000000
+07000000007770000077700000000000ff7007fff0700007ff700007fff700070000000000000000000000000000000000000000000000000000000000000000
+00000000077777000077700000000000f0700070f7000707f700007ff070707f0000000000000000000000000000000000000000000000000000000000000000
+00000000777077700777770000000000f70000700070007f70700007070007070000000000000000000000000000000000000000000000000000000000000000
+000000007700077007707700000000007000007f0770700f700077077000007f0000000000000000000000000000000000000000000000000000000000000000
+00000000700000700700070000000000f70707fff00707fff707f07ff70077ff0000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000ff707fffffff77ffff77ffffff77ffff0000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 77777777777777707777777777777777007777707777777777777777777777777777777777777777000000000000000000000000000000000000000000000000
 70007007070000700007000700007007070700707000700070007000000700077000700770007007000000000000000000000000000000000000000000000000
