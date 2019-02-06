@@ -4,6 +4,8 @@ __lua__
 
 --todo
 --  design 3 behavior patterns
+--	turret on spacetrash
+--	fix spacetrash dmg bug
 --	shield system
 --  dash
 --  wave system
@@ -85,6 +87,8 @@ function _init()
 	printh("init")
 	for i = 1,4 do
 		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"orb",state))
+		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien",state))
+		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"robot",state))
 		local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
 		state.enemies = generatespacetrash(flr(rnd(10)),origin,state.enemies)
 	end
@@ -335,7 +339,9 @@ end
 function returncollisions(events, state, sectors)
 	local levents = {}
 	each(state.projectiles, function(i)
-		if every(4,(isinsector(i.x,i.y)[2] % 4)) then
+		local offset = 0
+		if stat(1) > 0.9 then offset = 3 end
+		if every(4+offset,(isinsector(i.x,i.y)[2] % 4+offset)) then
 			local collision = projcollisioncheck(i, sectors)
 			if collision ~= nil then
 				i.death = true
@@ -482,7 +488,7 @@ function spawnenemy(pos,type,state)
 					enemy.vector = vlist[1+flr(rnd(4))]
 					enemy.projdir = {-enemy.vector[1],-enemy.vector[2]}
 				end
-				if outofbounds(enemy,const.bounds[3]) then
+				if outofbounds(enemy,const.combinedbounds) then
 					enemy.vector = {-enemy.vector[1],-enemy.vector[2]}
 				end
 				if every(180) then
@@ -884,11 +890,10 @@ end
 function drawenemies(p, cambounds,y1,y2,yoffset)
 	for enemy in all(state.enemies) do
 		if outofbounds(enemy,cambounds) then 
-			local x = mid((enemy.x),p.cam.x-64,p.cam.x+59)
-			local y = mid((enemy.y),p.cam.y+y1+yoffset+1,p.cam.y+y2+yoffset-4)
-			palt(0,false)
-			palt(15,true)
-			if every(60,0,40) then spr(14,x-1,y-1) end
+			local x = mid((enemy.x),p.cam.x-66,p.cam.x+64)
+			local y = mid((enemy.y),p.cam.y+y1+yoffset-1,p.cam.y+y2+yoffset)
+			if enemy.velocity > 0.5 then pal(2,8) end
+			if every(30-enemy.velocity*10,0,enemy.velocity*10) then spr(14,x-1,y-1) end
 			pal()
 		end
 		if enemy.hit[1] then pal(0,7+flr(rnd(2))) pal(7,7+flr(rnd(2))) end
@@ -925,7 +930,8 @@ function drawprojectiles(p,cambounds,y1,y2,yoffset)
 		if outofbounds(proj,cambounds) then 
 			local x = mid((proj.x),p.cam.x-64,p.cam.x+63)
 		 	local y = mid((proj.y),p.cam.y+y1+yoffset,p.cam.y+y2+yoffset-1)
-			if every(30) then circfill(x,y,0,proj.color) end
+		
+			if every(30-proj.velocity*10,0,proj.velocity*10) then circfill(x,y,0,proj.color) end
 		else
 			proj.gfx(proj)
 		end
@@ -954,14 +960,14 @@ end
 
 
 __gfx__
-00000000000000000000000000000000ff7777fff77777ff007770000077000007700000ffffff7777ffffff00000000f0000ffff00000fff00000ffff0000ff
-00000000000000000000000007770700f777777f7000007f07777700077870007e870000ffff77000077ffff000000000bbbb0ff0bbbbb0f0888880ff088880f
-00700700000700000007000070007000770000777070707f787778707778870078070000fff7000000007fff00000000f0bbb0fff0bbbb0f0880880f0880880f
-00077000007770000077700007770700700000077007007f788788707880070007700000ff700770000007ff00000000f0bbb0ff0bbbb0ff0888880f0888880f
-00077000007770000077700000000000770000777070707f788788700780700000000000f70077700000007f000000000bbbbb0f0bbbbb0f0880880f088000ff
-00700700077577000777570000000000f777777f7000007f078787000077000000000000f70777000000007f00000000f00000fff00000fff00f00fff00fffff
-00000000075557000775550000000000ff7777fff77777ff077777000000000000000000700770000000000700000000ffffffffffffffffffffffffffffffff
-00000000077577000777570000000000ffffffffffffffff007770000000000000000000700000000000000700000000ffffffffffffffffffffffffffffffff
+00000000000000000000000000000000ff7777fff77777ff007770000077000007700000ffffff7777ffffff00000000f0000ffff00000ff22220000ff0000ff
+00000000000000000000000007770700f777777f7000007f07777700077870007e870000ffff77000077ffff000000000bbbb0ff0bbbbb0f22220000f088880f
+00700700000700000007000070007000770000777070707f787778707778870078070000fff7000000007fff00000000f0bbb0fff0bbbb0f222200000880880f
+00077000007770000077700007770700700000077007007f788788707880070007700000ff700770000007ff00000000f0bbb0ff0bbbb0ff000000000888880f
+00077000007770000077700000000000770000777070707f788788700780700000000000f70077700000007f000000000bbbbb0f0bbbbb0f00000000088000ff
+00700700077577000777570000000000f777777f7000007f078787000077000000000000f70777000000007f00000000f00000fff00000ff00000000f00fffff
+00000000075557000775550000000000ff7777fff77777ff077777000000000000000000700770000000000700000000ffffffffffffffff00000000ffffffff
+00000000077577000777570000000000ffffffffffffffff007770000000000000000000700000000000000700000000ffffffffffffffff00000000ffffffff
 07000000077777000777770000000000f777777ffffff7ff777fffffff7ff7ff7000007070000000000000070000000000000000000000000000000000000000
 7770000000777000007770000000000070000007ff7ff7ffff7fff7ff777f7ff7700077070000000000007070000000000000000000000000000000000000000
 070000000077700000777000000000007000000777777777f777777f7700077778707870f70000000000007f0000000000000000000000000000000000000000
