@@ -18,7 +18,10 @@ function _init()
 	const = {
 		bounds = {
 			{x = 200, y = 350, w = 200, h = 100},
-			{x = 200, y = 200, w = 200, h = 100}
+			{x = 200, y = 200, w = 200, h = 100},
+		},
+		combinedbounds = {
+				x1 = 200, x2 = 400,  y1 = 200, y2 = 450
 		},
 		limits = {
 			x1 = 100, x2 = 500, y1 = 100, y2 = 550
@@ -81,9 +84,9 @@ function _init()
 	
 	printh("init")
 	for i = 1,4 do
-		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"robot"))
-		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"debree"))
-
+		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"orb",state))
+		local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
+		state.enemies = generatespacetrash(flr(rnd(10)),origin,state.enemies)
 	end
 end
 
@@ -187,7 +190,7 @@ function  _update60()
 	sectors = updatesectors(sectors, state.projectiles)
 
 	lstate.players = updateplayers(lstate.players, lstate.time, events, sectors)
-	lstate.enemies = updateenemies(lstate.enemies, lstate.time, events, sectors)
+	lstate.enemies = updateenemies(lstate.enemies, lstate, events, sectors)
 	lstate.projectiles = updateprojectiles(lstate.projectiles, sectors)
 	
 
@@ -208,7 +211,7 @@ function  _update60()
 end
 
 
--- SECTOR STUFF BELOW
+-- sector stuff below
 function initsectors(width,height)
 	local sectors = {}
 	for x = -width,width do
@@ -365,7 +368,8 @@ function projcollisioncheck(proj,sectors)
 			collision = {
 				x = proj.x,
 				y = proj.y,
-				hit = i
+				hit = i,
+				id = proj.id
 			}
 		end
 	end)
@@ -418,26 +422,67 @@ end
 -- enemy
 function spawnenemy(pos,type,state)
 	local enemy = {}
+	if type == "orb" then
+		enemy = { 
+			id = flr(rnd(1000)),
+			type ="enemy",
+			subtype = type,
+			hp = 30, 
+			hit = {false, nil},
+			x = pos[1], 
+			y =  pos[2],
+			rad = 8,   
+			vector = {1,0},
+			velocity = 0.1,
+			movement = function(enemy, state, events)	
+					if enemy.hit[1] then 
+						enemy.velocity += 0.05 
+						if enemy.hit[2] == 1 then
+							enemy.vector[2] -= 0.05
+						else
+							enemy.vector[2] += 0.05
+						end
+						enemy.vector[2] = mid(enemy.vector[2],-1,1)
+					end
+					local lbounds = const.combinedbounds
+			
+					if enemy.x > (lbounds.x2) then enemy.vector[1] -= 0.15 end
+					if enemy.x < (lbounds.x1) then enemy.vector[1] += 0.15 end
+					if enemy.y > (lbounds.y2) then enemy.vector[2] -= 0.15 end
+					if enemy.y < (lbounds.y1) then enemy.vector[2] += 0.15 end
+			end,
+			gfx = function(enemy, time)
+				palt(15,true)
+				palt(0,false)
+				local colors = {14,8,11}
+				local color = colors[1+flr(rnd(#colors))]
+				if every(enemy.hp,0,2) then pal(0,color) pal(7,0) end
+				if every(enemy.hp,4,2) then pal(0,color) end
+				spr(9,enemy.x-8,enemy.y-8,2,2)
+			end
+		}
+	end
 	if type == "robot" then
 		enemy = { 
 			id = flr(rnd(1000)),
 			type ="enemy",
 			subtype = type,
 			hp = 3, 
-			hit = false,
+			hit = {false, nil},
 			x = pos[1], 
 			y =  pos[2],
 			rad = 6,   
 			vector = {0,0},
 			projdir = {0,0},
 			velocity = 0.3,
-			movement = function(enemy, time, events)	
+			movement = function(enemy, state, events)	
+				local time = state.time
 				if every(120) then
 					local vlist = {const.vector.up,const.vector.left,const.vector.down,const.vector.right}
 					enemy.vector = vlist[1+flr(rnd(4))]
 					enemy.projdir = {-enemy.vector[1],-enemy.vector[2]}
 				end
-				if outofbounds(enemy,const.limits) then
+				if outofbounds(enemy,const.bounds[3]) then
 					enemy.vector = {-enemy.vector[1],-enemy.vector[2]}
 				end
 				if every(180) then
@@ -468,14 +513,15 @@ function spawnenemy(pos,type,state)
 			type ="enemy",
 			subtype = type,
 			hp = 3, 
-			hit = false,
+			hit = {false, nil},
 			x = pos[1], 
 			y =  pos[2],
 			rad = 6,   
 			vector = {0,0},
 			projdir = {0,0},
 			velocity = 0.3,
-			movement = function(enemy, time, events)
+			movement = function(enemy, state, events)
+				local time = state.time
 				local closestplayer = getclosestplayer(enemy.x,enemy.y)
 				local directionofplayer = normalizedvectora2b(enemy,closestplayer)
 				enemy.vector = {
@@ -499,88 +545,79 @@ function spawnenemy(pos,type,state)
 			end
 		}
 	end
-	if type == "debree" then
-		enemy = { 
-			id = flr(rnd(1000)),
-			type ="enemy",
-			subtype = type,
-			hp = 6, 
-			hit = false,
-			x = pos[1], 
-			y =  pos[2],
-			rad = 4,
-			debree = {
-				{
-					sprite = flr(rnd(4)),
-					offsetx = flr(rnd(4)-2)*7,
-					offsety = flr(rnd(4)-2)*7,
-					flipx = coinflip(),
-					flipy = coinflip()
-				},
-				{
-					sprite = flr(rnd(4)),
-					offsetx = flr(rnd(4)-2)*7,
-					offsety = flr(rnd(4)-2)*7,
-					flipx = coinflip(),
-					flipy = coinflip()
-				},
-				{
-					sprite = flr(rnd(4)),
-					offsetx = flr(rnd(2)-1)*7,
-					offsety = flr(rnd(2)-1)*7,
-					flipx = coinflip(),
-					flipy = coinflip()
-				},
-				{
-					sprite = flr(rnd(4)),
-					offsetx = flr(rnd(2)-1)*7,
-					offsety = flr(rnd(2)-1)*7,
-					flipx = coinflip(),
-					flipy = coinflip()
-				},
-			},  
-			vector = {rnd(2)-1,rnd(2)-1},
-			projdir = {0,0},
-			velocity = 0.05+rnd(0.2),
-			movement = function(enemy, time, events)
-			end,
-			gfx = function(enemy)
-				palt(15,true)
-				palt(0,false)
-				for a in all(enemy.debree) do
-					spr(20+a.sprite,enemy.x+a.offsetx-4,enemy.y+a.offsety-4,1,1,a.flipx,a.flipy)
-				end
-				palt()
-			end
-		}
-	end
-	if type == "asteroidsmall" then
-		enemy = { 
-			id = flr(rnd(1000)),
-			type ="enemy",
-			subtype = type,
-			hp = 3, 
-			hit = false,
-			x = pos[1]+(rnd(2)-1), 
-			y =  pos[2]+(rnd(2)-1),
-			rad = 4,
-			sprite = flr(rnd(4)),
-			flipx = coinflip(),
-			flipy = coinflip(),  
-			vector = {rnd(2)-1,rnd(2)-1},
-			projdir = {0,0},
-			velocity = 0.05+rnd(0.1),
-			movement = function(enemy, time, events)
-			end,
-			gfx = function(enemy)
-				palt(15,true)
-				palt(0,false)
-				spr(20+enemy.sprite,enemy.x-4,enemy.y-4,1,1,enemy.flipx,enemy.flipy)
-				palt()
-			end
-		}
-	end
+
 	return enemy
+end
+
+function generatespacetrash(size,origin,enemies)
+  local vlist = {const.vector.up,const.vector.left,const.vector.down,const.vector.right}
+  local generatedsize = 1
+  local master = {
+    sprite = 20+flr(rnd(4)),
+		flipy = coinflip(),
+		flipx = coinflip(),
+    id = flr(rnd(1000)),
+    type = "enemy",
+    subtype = "master",
+    x = origin[1],
+		y = origin[2],
+		velocity = 0.1,
+    vector = const.vector.down,
+    hp = 2,
+		hit = {false, nil},
+    rad = 2,
+		movement = function(i,state,events) end,
+		gfx = function(i)
+			palt(0,false)
+			palt(15,true)
+			if i.hp == 1 and every(4,0,2) then pal(7,8) end
+			spr(i.sprite,i.x-3,i.y-4,1,1,i.flipx,i.flipy)
+			pal()
+		end
+  }
+  local construct = {master}
+  while generatedsize < size do
+    for i in all(construct) do
+      if coinflip() then
+        local slave = {
+          sprite = 20+flr(rnd(4)),
+					flipy = coinflip(),
+					flipx = coinflip(),
+          type = "enemy",
+          subtype = "slave",
+          id = master.id + generatedsize,
+          x = i.x,
+					y = i.y,
+					velocity = 0.1,
+					hit = {false, nil},
+          vector = master.vector,
+          hp = 2,
+          rad = 3,
+          movement = function(slave,state,events)
+          end,
+          gfx = master.gfx
+        }
+        local crash = true
+        while crash do
+					crash = false
+          local offset = vlist[1+flr(rnd(4))]
+          slave.x += offset[1]*8
+          slave.y += offset[2]*8
+          for i2 in all(construct) do
+            if i2.x == slave.x and i2.y == slave.y then crash = true end          
+          end
+        end
+        add(construct,slave)
+        generatedsize += 1
+      end
+    end
+  end
+
+  local lenemies = enemies
+  each(construct,function(i)
+    add(lenemies,i)
+  end)
+  return enemies
 end
 
 function coinflip()
@@ -615,30 +652,26 @@ function normalizedvectora2b(entitya,entityb)
 	return vector
 end
 
-function updateenemies(e, time, events, sectors)
+function updateenemies(e, state, events, sectors)
+	local time = state.time
 	local les = {}
 	les = filter(e, function(le)
-		le.hit = false
-		local neighbours = myneighbours(le.x,le.y,sectors)
-		each(neighbours, function(i)
-			if (i ~= le) and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
-				local vector = normalizedvectora2b(le,i,le.vector)
-				le.x -= vector[1] * (le.velocity *3)
-				le.y -= vector[2] * (le.velocity *3)
-			end
-		end)
-		
+	
+		-- local neighbours = myneighbours(le.x,le.y,sectors)
+		-- -- each(neighbours, function(i)
+		-- -- 	if (i ~= le) and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
+		-- -- 		local vector = normalizedvectora2b(le,i,le.vector)
+		-- -- 		le.x -= vector[1] * (le.velocity *3)
+		-- -- 		le.y -= vector[2] * (le.velocity *3)
+		-- -- 	end
+		-- -- end)
 		le.x += le.vector[1] * le.velocity
 		le.y += le.vector[2] * le.velocity
 		
-		le.movement(le,time,events)
+		le.movement(le,state,events)
+		le.hit = {false, nil}
 		if le.hp <= 0 then 
 			add(events,{type="animation", object = spawngfx("explosion",le.x,le.y)})
-			if le.subtype == "asteroid" then
-				for i = 1,3 do
-					add(events,{type="enemy", object = {type = "asteroidsmall",x = le.x, y = le.y}})
-				end
-			end	
 		end
 		return le.hp > 0
 	end)
@@ -683,7 +716,7 @@ function updateevents(state,events)
 			for e in all(lstate.enemies) do
 				if i.object.hit.id == e.id then
 					e.hp -= 1
-					e.hit = true
+					e.hit = {true, i.object.id}
 				end
 			end
 		end
@@ -845,7 +878,7 @@ function drawgrid(p)
 			end
 			-- rect(box.x,box.y,box.x+box.w,box.y+box.h,11) 
 		end
-		-- if every(30,3,5) then rect(box.x,box.y,box.x+box.w,box.y+box.h,14) end
+		if every(30,3,5) then rect(const.combinedbounds.x1, const.combinedbounds.y1, const.combinedbounds.x2, const.combinedbounds.y2 ,14) end
 end		
 
 function drawenemies(p, cambounds,y1,y2,yoffset)
@@ -858,7 +891,7 @@ function drawenemies(p, cambounds,y1,y2,yoffset)
 			if every(60,0,40) then spr(14,x-1,y-1) end
 			pal()
 		end
-		if enemy.hit then pal(0,7+flr(rnd(2))) pal(7,7+flr(rnd(2))) end
+		if enemy.hit[1] then pal(0,7+flr(rnd(2))) pal(7,7+flr(rnd(2))) end
 		enemy.gfx(enemy,state.time)
 		pal()
 	end
@@ -921,22 +954,22 @@ end
 
 
 __gfx__
-00000000000000000000000000000000ff7777fff77777ff007770000077000007700000070000000700000000000000f0000ffff00000fff00000ffff0000ff
-00000000000000000000000007770700f777777f7000007f07777700077870007e8700000770000077000000000000000bbbb0ff0bbbbb0f0888880ff088880f
-00700700000700000007000070007000770000777070707f787778707778870078070000070777770700000000000000f0bbb0fff0bbbb0f0880880f0880880f
-00077000007770000077700007770700700000077007007f788788707880070007700000770000000770000000000000f0bbb0ff0bbbb0ff0888880f0888880f
-00077000007770000077700000000000770000777070707f7887887007807000000000007008000800700000000000000bbbbb0f0bbbbb0f0880880f088000ff
-00700700077577000777570000000000f777777f7000007f078787000077000000000000708800088070000000000000f00000fff00000fff00f00fff00fffff
-00000000075557000775550000000000ff7777fff77777ff077777000000000000000000708880888070000000000000ffffffffffffffffffffffffffffffff
-00000000077577000777570000000000ffffffffffffffff007770000000000000000000700880880070000000000000ffffffffffffffffffffffffffffffff
-07000000077777000777770000000000fff7ffffffffffffffffffffffffffff7000007007080008070000000000000000000000000000000000000000000000
-77700000007770000077700000000000ff707ffff77777ff777777fff7f7f7ff7700077007000000070000000000000000000000000000000000000000000000
-07000000007770000077700000000000f77077fff70007fff7007fffff777fff7870787000777777700000000000000000000000000000000000000000000000
-000000000777770000777000000000007000007f7700077f7707777ff77777ff7887887000000000000000000000000000000000000000000000000000000000
-00000000777077700777770000000000f77077fff70007fff7007fffff777fff7870787000000000000000000000000000000000000000000000000000000000
-00000000770007700770770000000000ff707ffff77777ff7777777ff7f7f7ff7700077000000000000000000000000000000000000000000000000000000000
-00000000700000700700070000000000fff7fffff7f7f7ffffffffffffffffff7000007000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000ffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000ff7777fff77777ff007770000077000007700000ffffff7777ffffff00000000f0000ffff00000fff00000ffff0000ff
+00000000000000000000000007770700f777777f7000007f07777700077870007e870000ffff77000077ffff000000000bbbb0ff0bbbbb0f0888880ff088880f
+00700700000700000007000070007000770000777070707f787778707778870078070000fff7000000007fff00000000f0bbb0fff0bbbb0f0880880f0880880f
+00077000007770000077700007770700700000077007007f788788707880070007700000ff700770000007ff00000000f0bbb0ff0bbbb0ff0888880f0888880f
+00077000007770000077700000000000770000777070707f788788700780700000000000f70077700000007f000000000bbbbb0f0bbbbb0f0880880f088000ff
+00700700077577000777570000000000f777777f7000007f078787000077000000000000f70777000000007f00000000f00000fff00000fff00f00fff00fffff
+00000000075557000775550000000000ff7777fff77777ff077777000000000000000000700770000000000700000000ffffffffffffffffffffffffffffffff
+00000000077577000777570000000000ffffffffffffffff007770000000000000000000700000000000000700000000ffffffffffffffffffffffffffffffff
+07000000077777000777770000000000f777777ffffff7ff777fffffff7ff7ff7000007070000000000000070000000000000000000000000000000000000000
+7770000000777000007770000000000070000007ff7ff7ffff7fff7ff777f7ff7700077070000000000007070000000000000000000000000000000000000000
+070000000077700000777000000000007000000777777777f777777f7700077778707870f70000000000007f0000000000000000000000000000000000000000
+0000000007777700007770000000000070000007fffffffffffffffff70007ff78878870f70000000000707f0000000000000000000000000000000000000000
+0000000077707770077777000000000000000007ffffffffff77777ff70007ff78707870ff700000000707ff0000000000000000000000000000000000000000
+0000000077000770077077000000000070000007777fff77777fff77777777ff77000770fff7000007007fff0000000000000000000000000000000000000000
+0000000070000070070007000000000070000007ff7f777fff7ff77fff7ff7ff70000070ffff77000077ffff0000000000000000000000000000000000000000
+00000000000000000000000000000000f777707ffffff7ffff7ff7ffff7ff7ff00000000ffffff7777ffffff0000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 77777777777777707777777777777777007777707777777777777777777777777777777777777777000000000000000000000000000000000000000000000000
 70007007070000700007000700007007070700707000700070007000000700077000700770007007000000000000000000000000000000000000000000000000
