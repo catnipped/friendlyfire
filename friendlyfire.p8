@@ -579,18 +579,20 @@ function generatesnake(size,origin,direction,enemies)
 		x = origin[1],
 		y = origin[2],
 		velocity = 1,
-		vector = const.vector.left,
+		vector = {0,0},
 		hp = 2,
 		hit = {false, nil},
 		rad = 3,
 		movement = function(enemy,state,events) 
-			local target = getclosestplayer(enemy.x,enemy.y)
-			
-			local directionoftarget = vectornormalized(vectora2b(enemy,target))
-			enemy.vector = {
-				lerp(enemy.vector[1],directionoftarget[1],0.01),
-				lerp(enemy.vector[2],directionoftarget[2],0.01),
-			}
+			if every(10) then
+				local target = getclosestplayer(enemy.x,enemy.y)
+				
+				local directionoftarget = vectornormalized(vectora2b(enemy,target))
+				enemy.vector = {
+					lerp(enemy.vector[1],directionoftarget[1],0.01),
+					lerp(enemy.vector[2],directionoftarget[2],0.01),
+				}
+			end
 		end,
 		gfx = function(i)
 			palt(0,false)
@@ -633,12 +635,14 @@ function generatesnake(size,origin,direction,enemies)
 				end
 				if target == nil then 
 					enemy.movement = function(enemy,state,events) 
-						local target = getclosestplayer(enemy.x,enemy.y)
-						local directionoftarget = vectornormalized(vectora2b(enemy,target))
-						enemy.vector = {
-							lerp(enemy.vector[1],directionoftarget[1],0.01),
-							lerp(enemy.vector[2],directionoftarget[2],0.01),
-						}
+						if every(10) then
+							local target = getclosestplayer(enemy.x,enemy.y)
+							local directionoftarget = vectornormalized(vectora2b(enemy,target))
+							enemy.vector = {
+								lerp(enemy.vector[1],directionoftarget[1],0.01),
+								lerp(enemy.vector[2],directionoftarget[2],0.01),
+							}
+						end
 					end
 				else
 					if collisioncheck(enemy.x,enemy.y,target.x,target.y,enemy.rad*2,target.rad) then
