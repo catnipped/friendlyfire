@@ -5,7 +5,6 @@ __lua__
 --todo
 --  design 3 behavior patterns
 --	turret on spacetrash
---	fix spacetrash dmg bug
 --	shield system
 --  dash
 --  wave system
@@ -92,6 +91,8 @@ function _init()
 		local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
 		state.enemies = generatespacetrash(flr(rnd(10)),origin,state.enemies)
 	end
+	local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
+	generatesnake(8,origin,const.vector.right,state.enemies)
 end
 
 function initstars(a,layer)
@@ -114,6 +115,11 @@ function pythagorish(ax,ay,bx,by)
     return 100
   end
   return (px*px + py*py)
+end
+
+function vectornormalized(vector)
+	local factor = 1/(abs(vector[1])+abs(vector[2]))
+	return {vector[1]*factor,vector[2]*factor}
 end
 
 function sloppysqrt(x)
@@ -206,9 +212,9 @@ function  _update60()
 	lstate.animations = updateanims(lstate.animations)
 	lstate = cleanup(lstate)
 	lstate.time += 1/60
-	if every(rnd(1000)) and #lstate.enemies < 8 then
-		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien"))
-	end
+	-- if every(rnd(1000)) and #lstate.enemies < 8 then
+	-- 	add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien"))
+	-- end
 	if every(60) then lstate.score += 1 end
 	state = lstate
 --	printh("memory: ".. (stat(0)/1024))
@@ -345,6 +351,7 @@ function returncollisions(events, state, sectors)
 			local collision = projcollisioncheck(i, sectors)
 			if collision ~= nil then
 				i.death = true
+				printh(collision.hit.subtype)
 				add(levents, {type = "collision", object = collision})
 			else
 				i.death = false
@@ -369,8 +376,9 @@ function projcollisioncheck(proj,sectors)
 	each(neighbours, function(i)
 		local lrad = i.rad
 		if i.shield then lrad = i.shieldrad end
-		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" and proj.origin ~= i.type  then
-			printh("collision!")
+		if i.subtype == "head" then printh(i.x-proj.x) end
+		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" and proj.origin ~= i.type then
+		--	printh("collision!")
 			collision = {
 				x = proj.x,
 				y = proj.y,
@@ -529,7 +537,7 @@ function spawnenemy(pos,type,state)
 			movement = function(enemy, state, events)
 				local time = state.time
 				local closestplayer = getclosestplayer(enemy.x,enemy.y)
-				local directionofplayer = normalizedvectora2b(enemy,closestplayer)
+				local directionofplayer = vectornormalized(vectora2b(enemy,closestplayer))
 				enemy.vector = {
 					lerp(enemy.vector[1],directionofplayer[1],0.01),
 					lerp(enemy.vector[2],directionofplayer[2],0.01),
@@ -557,6 +565,105 @@ function spawnenemy(pos,type,state)
 	return enemy
 end
 
+function generatesnake(size,origin,direction,enemies)
+ 	local vlist = {const.vector.up,const.vector.left,const.vector.down,const.vector.right}
+  local generatedsize = 1
+	local construct = {}
+ 
+	local master = {
+		sprite = 7,
+		id = flr(rnd(1000)),
+		type = "enemy",
+		subtype = "head",
+		snakeid = 0,
+		x = origin[1],
+		y = origin[2],
+		velocity = 1,
+		vector = const.vector.left,
+		hp = 2,
+		hit = {false, nil},
+		rad = 3,
+		movement = function(enemy,state,events) 
+			local target = getclosestplayer(enemy.x,enemy.y)
+			
+			local directionoftarget = vectornormalized(vectora2b(enemy,target))
+			enemy.vector = {
+				lerp(enemy.vector[1],directionoftarget[1],0.01),
+				lerp(enemy.vector[2],directionoftarget[2],0.01),
+			}
+		end,
+		gfx = function(i)
+			palt(0,false)
+			palt(15,true)
+			local sprite = i.sprite
+			if every(60,i.snakeid*8,30) then 
+				sprite += 1
+				
+			end
+			if i.hp == 1 and every(4,0,2) then pal(7,8) end
+			spr(sprite,i.x-3,i.y-3)
+			pal()
+		end
+	}
+
+	add(construct,master)
+
+  for i = 1,size do
+		local slave = {
+			sprite = 7,
+			type = "enemy",
+			subtype = "snakeslave",
+			id = master.id + generatedsize,
+			snakeid = generatedsize,
+			x = master.x - direction[1]*generatedsize*8,
+			y = master.y - direction[2]*generatedsize*8,
+			velocity = 1,
+			hit = {false, nil},
+			vector = master.vector,
+			hp = 2,
+			rad = 3,
+			movement = function(enemy,state,events) 
+
+				local target = nil
+				local targetid = enemy.id -1
+				for i in all(state.enemies) do
+					if targetid == i.id then 
+						target = i 
+					end
+				end
+				if target == nil then 
+					enemy.movement = function(enemy,state,events) 
+						local target = getclosestplayer(enemy.x,enemy.y)
+						local directionoftarget = vectornormalized(vectora2b(enemy,target))
+						enemy.vector = {
+							lerp(enemy.vector[1],directionoftarget[1],0.01),
+							lerp(enemy.vector[2],directionoftarget[2],0.01),
+						}
+					end
+				else
+					if collisioncheck(enemy.x,enemy.y,target.x,target.y,enemy.rad*2,target.rad) then
+						enemy.vector = {0,0}
+					else
+						local directionoftarget = vectornormalized(vectora2b(enemy,target))
+						enemy.vector = {
+							lerp(enemy.vector[1],directionoftarget[1],0.1),
+							lerp(enemy.vector[2],directionoftarget[2],0.1),
+						}
+					end
+				end
+			end,
+			gfx = master.gfx
+		}
+		add(construct,slave)
+		generatedsize += 1
+  end
+
+  local lenemies = enemies
+  each(construct,function(i)
+    add(lenemies,i)
+  end)
+  return enemies
+end
 function generatespacetrash(size,origin,enemies)
   local vlist = {const.vector.up,const.vector.left,const.vector.down,const.vector.right}
   local generatedsize = 1
@@ -573,7 +680,7 @@ function generatespacetrash(size,origin,enemies)
     vector = const.vector.down,
     hp = 2,
 		hit = {false, nil},
-    rad = 2,
+    rad = 3,
 		movement = function(i,state,events) end,
 		gfx = function(i)
 			palt(0,false)
@@ -652,12 +759,8 @@ function getclosestplayer(x,y)
 end
 
 
-function normalizedvectora2b(entitya,entityb)
-	local magnitude = abs(sloppysqrt(pythagorish(entitya.x,entitya.y,entityb.x,entityb.y))) * 1000
-	if magnitude > 0 then
-		vector = {(entityb.x-entitya.x)/magnitude,(entityb.y-entitya.y)/magnitude}
-	end
-	return vector
+function vectora2b(entitya,entityb)
+	return {(entityb.x-entitya.x),(entityb.y-entitya.y)}
 end
 
 function updateenemies(e, state, events, sectors)
@@ -965,14 +1068,14 @@ end
 
 
 __gfx__
-00000000ffffffffffffffff00000000ff7777fff77777fff07770ff0077000007700000ffffff7777ffffff00000000f0000ffff00000ff22220000ff0000ff
-00000000fff0fffffff0ffff07770700f777777f7000007f0777770f077870007e870000ffff77000077ffff000000000bbbb0ff0bbbbb0f22220000f088880f
-00700700ff070fffff070fff70007000770000777070707f787778707778870078070000fff7000000007fff00000000f0bbb0fff0bbbb0f222200000880880f
-00077000f07770fff07770ff07770700700000077007007f788788707880070007700000ff700770000007ff00000000f0bbb0ff0bbbb0ff000000000888880f
-00077000f07770fff07770ff00000000770000777070707f788788700780700000000000f70077700000007f000000000bbbbb0f0bbbbb0f00000000088000ff
-007007000770770f0777070f00000000f777777f7000007f0787870f0077000000000000f70777000000007f00000000f00000fff00000ff00000000f00fffff
-000000000700070f0770000f00000000ff7777fff77777ff0777770f0000000000000000700770000000000700000000ffffffffffffffff00000000ffffffff
-000000000770770f0777070f00000000fffffffffffffffff07770ff0000000000000000700000000000000700000000ffffffffffffffff00000000ffffffff
+00000000ffffffffffffffff00000000ff7777fff77777fff07770ffff77ffffffffffffffffff7777ffffff00000000f0000ffff00000ff22220000ff0000ff
+00000000fff0fffffff0ffff07770700f777777f7000007f0777770ff7787fffff77ffffffff77000077ffff000000000bbbb0ff0bbbbb0f22220000f088880f
+00700700ff070fffff070fff70007000770000777070707f78777870777887fff7e87ffffff7000000007fff00000000f0bbb0fff0bbbb0f222200000880880f
+00077000f07770fff07770ff07770700700000077007007f78878870788007fff7807fffff700770000007ff00000000f0bbb0ff0bbbb0ff000000000888880f
+00077000f07770fff07770ff00000000770000777070707f78878870f7807fffff77fffff70077700000007f000000000bbbbb0f0bbbbb0f00000000088000ff
+007007000770770f0777070f00000000f777777f7000007f0787870fff77fffffffffffff70777000000007f00000000f00000fff00000ff00000000f00fffff
+000000000700070f0770000f00000000ff7777fff77777ff0777770fffffffffffffffff700770000000000700000000ffffffffffffffff00000000ffffffff
+000000000770770f0777070f00000000fffffffffffffffff07770ffffffffffffffffff700000000000000700000000ffffffffffffffff00000000ffffffff
 070000000777770f0777770f00000000f777777ffffff7ff777fffffff7ff7ff7000007070000000000000070000000000000000000000000000000000000000
 77700000f07770fff07770ff0000000070000007ff7ff7ffff7fff7ff777f7ff7700077070000000000007070000000000000000000000000000000000000000
 07000000f07770fff07770ff000000007000000777777777f777777f7700077778707870f70000000000007f0000000000000000000000000000000000000000
