@@ -3,10 +3,11 @@ version 16
 __lua__
 
 --todo
---  design 3 behavior patterns
 --	turret on spacetrash
 --	shield system
+--  player death
 --  dash
+--	b-button ability
 --  wave system
 --  design wave 1-10
 --  menu 
@@ -1006,7 +1007,7 @@ function drawenemies(p, cambounds,y1,y2,yoffset)
 			if every(30-enemy.velocity*10,0,enemy.velocity*10) then spr(14,x-1,y-1) end
 			pal()
 		end
-		if enemy.hit[1] then pal(0,7+flr(rnd(2))) pal(7,7+flr(rnd(2))) end
+		if enemy.hit[1] then pal(0,7+flr(rnd(2))) pal(7,0) end
 		enemy.gfx(enemy,state.time)
 		pal()
 	end
