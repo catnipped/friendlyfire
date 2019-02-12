@@ -54,7 +54,8 @@ function _init()
 					x = const.bounds[1].x+100, 
 					y = const.bounds[1].y+50, 
 				},
-				shield = true, 
+				shield = false,
+				energy = 0, 
 				shieldrad = 8, 
 				projdir = const.vector.up, 
 				cooldown = -1, 
@@ -73,7 +74,8 @@ function _init()
 					x = const.bounds[2].x+100, 
 					y = const.bounds[2].y+50, 
 				},
-				shield = true,
+				shield = false,
+				energy = 0,
 				shieldrad = 8, 
 				projdir = const.vector.down, 
 				cooldown = -1, 
@@ -290,11 +292,17 @@ function cleanup(state)
 	return lstate
 end
 
+function respawn(p)
+end
+
 -- player
 function updateplayers(state, events, sectors, time)
 	lstate = state
 	lstate.players = funmap(state.players, function(lp)
+		lp.energy += 1/state.time
+		if lp.death and lp.energy > 100 then respawn(p) end
 		if lp.death == false then
+			if lp.energy > 100 then lp.shield = true lp.energy = 0 end
 			local lbounds = const.bounds[lp.id]
 			lp.x += lp.vx
 			lp.y += lp.vy
@@ -304,12 +312,14 @@ function updateplayers(state, events, sectors, time)
 			if playercolcheck(lp,neighbours) and isinvulnerable(lp) == false then
 				if lp.shield == true then 
 					lp.shield = false
+					lp.energy = 0
 					lp.invulnerable = state.time
 					printh("lose shield!")
 					local loseshield = spawngfx("loseshield",lp.x,lp.y)
 					add(lstate.animations,loseshield)
 				elseif isinvulnerable(lp) == false then
-					lp.death = true	
+					lp.death = true
+					lp.energy = 0
 					local deathgfx = spawngfx("death",lp.x,lp.y)
 					add(lstate.animations,deathgfx)
 				end	
@@ -388,6 +398,7 @@ function returncollisions(events, state, sectors)
 			local collision = projcollisioncheck(i, sectors)
 			if collision ~= nil then
 				i.death = true
+
 				printh(collision.hit.subtype)
 				add(levents, {type = "collision", object = collision})
 			else
@@ -869,12 +880,14 @@ function updateevents(state,events)
 				if i.object.hit.id == p.id then
 					if p.shield == true and isinvulnerable(p) == false then 
 						p.shield = false
+						p.energy = 0
 						p.invulnerable = state.time
 						printh("lose shield!")
 						local loseshield = spawngfx("loseshield",i.object.hit.x,i.object.hit.y)
 						add(lstate.animations,loseshield)
 					elseif isinvulnerable(p) == false then
-						p.death = true	
+						p.death = true
+						p.energy = 0
 						local deathgfx = spawngfx("death",i.object.hit.x,i.object.hit.y)
 						add(lstate.animations,deathgfx)
 					end	
@@ -1121,8 +1134,14 @@ function drawplayer (p1,p2,y1,y2,yoffset)
 		palt(0,false)
 		if every(60,0,40) then spr(11+p1.id,x-1,y-1) end
 	end
-	if every(4,0,2) and p1.shield then 
-		circ(p1.x,p1.y,p1.shieldrad,11) 
+	if p1.shield then 
+		if every(4,0,2) then
+			circ(p1.x,p1.y,p1.shieldrad,11)
+		end
+	else
+		local x = flr(p1.x)
+		local y = flr(p1.y)
+		line(x + 6, y + 6, x + 6, y + 6-p1.energy/10,11)
 	end
 	palt(15,true)
 	palt(0,false)
