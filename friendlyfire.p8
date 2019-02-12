@@ -4,8 +4,8 @@ __lua__
 
 --todo
 --	turret on spacetrash
---	shield system
---  player death
+--	respawn system (fill meter with points)
+--	shield meter
 --  dash
 --	b-button ability
 --  wave system
@@ -55,10 +55,12 @@ function _init()
 					y = const.bounds[1].y+50, 
 				},
 				shield = true, 
-				shieldrad = 9, 
+				shieldrad = 8, 
 				projdir = const.vector.up, 
 				cooldown = -1, 
-				rateoffire = {0,0.3} 
+				rateoffire = {0,0.3},
+				death = false,
+				invulnerable = 0
 			},
 			{ id = 2, 
 				type = "player",
@@ -72,10 +74,12 @@ function _init()
 					y = const.bounds[2].y+50, 
 				},
 				shield = true,
-				shieldrad = 9, 
+				shieldrad = 8, 
 				projdir = const.vector.down, 
 				cooldown = -1, 
-				rateoffire = {0,0.2} 
+				rateoffire = {0,0.2},
+				death = false,
+				invulnerable = 0
 			}
 		},
 		enemies = {},
@@ -200,7 +204,7 @@ function  _update60()
 	sectors = updatesectors(sectors, state.enemies)
 	sectors = updatesectors(sectors, state.projectiles)
 
-	lstate.players = updateplayers(lstate.players, lstate.time, events, sectors)
+	lstate = updateplayers(lstate, events, sectors, lstate.time)
 	lstate.enemies = updateenemies(lstate.enemies, lstate, events, sectors)
 	lstate.projectiles = updateprojectiles(lstate.projectiles, sectors)
 	
@@ -236,14 +240,16 @@ end
 
 function updatesectors(sectors, entities)
 	for i in all(entities) do
-		local sector = isinsector(i.x,i.y)
-		if sectors[sector[1]] == nil then
-			sectors[sector[2]] = {}
+		if i.death ~= true then
+			local sector = isinsector(i.x,i.y)
+			if sectors[sector[1]] == nil then
+				sectors[sector[2]] = {}
+			end
+			if sectors[sector[1]][sector[2]] == nil then
+				sectors[sector[1]][sector[2]] = {}
+			end
+			add(sectors[sector[1]][sector[2]],i)
 		end
-		if sectors[sector[1]][sector[2]] == nil then
-			sectors[sector[1]][sector[2]] = {}
-		end
-		add(sectors[sector[1]][sector[2]],i)
 	end
 	return sectors
 end
@@ -285,45 +291,75 @@ function cleanup(state)
 end
 
 -- player
-function updateplayers(p, time, events)
-	local lps = p
-	lps = funmap(lps, function(lp)
-		local lbounds = const.bounds[lp.id]
-		lp.x += lp.vx
-		lp.y += lp.vy
-		lp.vx = lerp(lp.vx, 0, 0.05)
-		lp.vy = lerp(lp.vy, 0, 0.05)
-
-		if btn(4,lp.id-1) and cooldowntimer(time, lp) then
-			local projgfx = function(proj) 
-					local color = 7
-					if every(3,0,2) then color = proj.color end
-					circfill(proj.x,proj.y,proj.rad,color)
-			end 
-			local lproj = spawnprojectile(lp,projgfx,11)
-			lp.cooldown = time
-			lp.rateoffire[1] = lp.rateoffire[2]
-			add(events,{type = "projectile", object = lproj}) 
-		elseif btn(4,lp.id-1) then
-			lp.rateoffire[1] = lp.rateoffire[2]
-		else
-			lp.rateoffire[1] -= 0.05
+function updateplayers(state, events, sectors, time)
+	lstate = state
+	lstate.players = funmap(state.players, function(lp)
+		if lp.death == false then
+			local lbounds = const.bounds[lp.id]
+			lp.x += lp.vx
+			lp.y += lp.vy
+			lp.vx = lerp(lp.vx, 0, 0.05)
+			lp.vy = lerp(lp.vy, 0, 0.05)
+			local neighbours = myneighbours(lp.x,lp.y,sectors)
+			if playercolcheck(lp,neighbours) and isinvulnerable(lp) == false then
+				if lp.shield == true then 
+					lp.shield = false
+					lp.invulnerable = state.time
+					printh("lose shield!")
+					local loseshield = spawngfx("loseshield",lp.x,lp.y)
+					add(lstate.animations,loseshield)
+				elseif isinvulnerable(lp) == false then
+					lp.death = true	
+					local deathgfx = spawngfx("death",lp.x,lp.y)
+					add(lstate.animations,deathgfx)
+				end	
+			end
+			if btn(4,lp.id-1) and cooldowntimer(time, lp) then
+				local projgfx = function(proj) 
+						local color = 7
+						if every(3,0,2) then color = proj.color end
+						circfill(proj.x,proj.y,proj.rad,color)
+				end 
+				local lproj = spawnprojectile(lp,projgfx,11)
+				lp.cooldown = time
+				lp.rateoffire[1] = lp.rateoffire[2]
+				add(events,{type = "projectile", object = lproj}) 
+			elseif btn(4,lp.id-1) then
+				lp.rateoffire[1] = lp.rateoffire[2]
+			else
+				lp.rateoffire[1] -= 0.05
+			end
+			if btn(2,lp.id-1) then lp.vy += -0.1 end
+			if btn(3,lp.id-1) then lp.vy += 0.1 end
+			if btn(0,lp.id-1) then lp.vx += -0.1 end
+			if btn(1,lp.id-1) then lp.vx += 0.1 end
+		
+			if lp.x > (lbounds.x+lbounds.w) then lp.vx -= 0.15 end
+			if lp.x < (lbounds.x) then lp.vx += 0.15 end
+			if lp.y > (lbounds.y+lbounds.h) then lp.vy -= 0.15 end
+			if lp.y < (lbounds.y) then lp.vy += 0.15 end
+			lp.vy = mid(lp.vy, -4, 4)
+			lp.vx = mid(lp.vx, -4, 4)
+			lp.cam = updatecam(lp)
 		end
-		if btn(2,lp.id-1) then lp.vy += -0.1 end
-		if btn(3,lp.id-1) then lp.vy += 0.1 end
-		if btn(0,lp.id-1) then lp.vx += -0.1 end
-		if btn(1,lp.id-1) then lp.vx += 0.1 end
-	
-		if lp.x > (lbounds.x+lbounds.w) then lp.vx -= 0.15 end
-		if lp.x < (lbounds.x) then lp.vx += 0.15 end
-		if lp.y > (lbounds.y+lbounds.h) then lp.vy -= 0.15 end
-		if lp.y < (lbounds.y) then lp.vy += 0.15 end
-		lp.vy = mid(lp.vy, -4, 4)
-		lp.vx = mid(lp.vx, -4, 4)
-		lp.cam = updatecam(lp)
 		return lp
 	end)
-	return lps
+	return lstate
+end
+
+function isinvulnerable(p)
+	return (state.time - p.invulnerable) < 2
+end
+
+function playercolcheck(p,neighbours)
+	local lneighbours = filter(neighbours, function(n)
+		return n.type == "enemy"
+	end)
+	for n in all(lneighbours) do
+		if collisioncheck(p.x, p.y, n.x, n.y, p.rad, n.rad) then 
+			return true 
+		end
+	end
 end
 
 function cooldowntimer(time, p)
@@ -827,7 +863,24 @@ function updateevents(state,events)
 		add(lstate.animations,projcolgfx)
 		local hitgfx = spawngfx("ehit",i.object.hit.x,i.object.hit.y)
 		add(lstate.animations,hitgfx)
-	
+		
+		if i.object.hit.type == "player" then
+			for p in all(lstate.players) do
+				if i.object.hit.id == p.id then
+					if p.shield == true and isinvulnerable(p) == false then 
+						p.shield = false
+						p.invulnerable = state.time
+						printh("lose shield!")
+						local loseshield = spawngfx("loseshield",i.object.hit.x,i.object.hit.y)
+						add(lstate.animations,loseshield)
+					elseif isinvulnerable(p) == false then
+						p.death = true	
+						local deathgfx = spawngfx("death",i.object.hit.x,i.object.hit.y)
+						add(lstate.animations,deathgfx)
+					end	
+				end
+			end
+		end
 		if i.object.hit.type == "enemy" then
 			for e in all(lstate.enemies) do
 				if i.object.hit.id == e.id then
@@ -868,6 +921,47 @@ end
 
 function spawngfx(type, lx, ly)
 	gfx = {}
+	if type == "loseshield" then
+			gfx = {
+			frame = 0,
+			runtime = 40,
+			x = lx,
+			y = ly,
+			gfx = function(gfx)
+				if gfx.frame == 1 then circfill(gfx.x,gfx.y,100,11) end
+				if every(gfx.frame,0,2) then
+					circ(gfx.x,gfx.y,8+gfx.frame,11)
+				end
+			end	
+		}
+	end
+	if type == "death" then
+		gfx = {
+			frame = 0,
+			runtime = 40,
+			x = lx,
+			y = ly,
+			gfx = function(gfx)
+				if gfx.frame == 1 then circfill(gfx.x,gfx.y,100,0) end
+				if gfx.frame == 2 then circfill(gfx.x,gfx.y,100,7) end
+				if gfx.frame == 3 then circfill(gfx.x,gfx.y,100,8) end
+				if every(2,0,1) then
+					fillp(flr(rnd(9999)))
+					circ(gfx.x,gfx.y,gfx.frame,7)
+				end
+				if every(2,1,1) then
+					fillp(flr(rnd(9999)))
+					circ(gfx.x,gfx.y,gfx.frame-gfx.frame/8,8)
+				end
+				fillp()
+				if every(gfx.frame/2,0,2) then
+					
+					circfill(gfx.x,gfx.y,gfx.frame,14)
+				end
+	
+			end	
+		}
+	end
 	if type == "flare" then
 		gfx = {
 			frame = 0,
@@ -958,14 +1052,19 @@ function drawplayerviewport(p,y1,y2,yoffset)
 	clip(0,y1,128,y2)
 	camera(p.cam.x-64,p.cam.y+yoffset)
 	pal()
-	
 	local cambounds = {x1 = p.cam.x-64, x2 = p.cam.x+64, y1 = p.cam.y+y1+yoffset, y2 = p.cam.y+y2+yoffset}
 
 	drawstars(p)
 	drawgrid(p)
 	drawenemies(p,cambounds,y1,y2,yoffset)
 	for player in all(state.players) do
-		drawplayer(player, p, y1, y2, yoffset)
+		if player.death ~= true then
+			if isinvulnerable(player) then
+				if every(8,0,4) then drawplayer(player, p, y1, y2, yoffset) end
+			else
+				drawplayer(player, p, y1, y2, yoffset) 
+			end
+		end
 	end
 	drawprojectiles(p,cambounds,y1,y2,yoffset)
 	for anim in all(state.animations) do
@@ -1022,7 +1121,9 @@ function drawplayer (p1,p2,y1,y2,yoffset)
 		palt(0,false)
 		if every(60,0,40) then spr(11+p1.id,x-1,y-1) end
 	end
-	--if every(4,0,2) and p1.shield then circ(p1.x,p1.y,p1.shieldrad,3) end
+	if every(4,0,2) and p1.shield then 
+		circ(p1.x,p1.y,p1.shieldrad,11) 
+	end
 	palt(15,true)
 	palt(0,false)
 	if p1.id == 2 then flipy = true end
