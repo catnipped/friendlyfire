@@ -3,11 +3,8 @@ version 16
 __lua__
 
 --todo
---  dash
---	b-button ability
 --  wave system
 --  menu 
---  ui
 --  game over screen
 
 
@@ -15,6 +12,7 @@ __lua__
 function _init()
 	music(1)
 	const = {
+		music = {0,4,8,-1},
 		bounds = {
 			{x = 200, y = 350, w = 200, h = 100},
 			{x = 200, y = 200, w = 200, h = 100},
@@ -198,6 +196,7 @@ end
 -->8
 --update functions below
 function  _update60()
+	if every(44*60) then music(const.music[1+flr(rnd(#const.music))]) end
 	local lstate = state
 	local events = {}
 	local sectors = initsectors(20,20)
@@ -379,7 +378,7 @@ function updateplayers(state, events, sectors, time)
 		lp.cam = updatecam(lp)
 		if lp.death and lp.energy > 100 then lp = respawn(lp) end
 		if lp.death == false then
-			if lp.energy > 100 then lp.shield = true sfx(23) lp.energy = 0 end
+			if lp.energy > 100 and lp.shield == false then lp.shield = true sfx(23) lp.energy = 0 end
 			
 		
 			local neighbours = myneighbours(lp.x,lp.y,sectors)
@@ -492,15 +491,16 @@ function projcollisioncheck(proj,sectors)
 	each(neighbours, function(i)
 		local lrad = i.rad
 		if i.shield then lrad = i.shieldrad end
-		if i.subtype == "head" then printh(i.x-proj.x) end
-		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" and proj.origin ~= i.type then
+		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" then
+			if (i.type == "enemy" and proj.origin == "player") or (i.type == "player" and proj.origin == "enemy") then
 		--	printh("collision!")
-			collision = {
-				x = proj.x,
-				y = proj.y,
-				hit = i,
-				id = proj.id
-			}
+				collision = {
+					x = proj.x,
+					y = proj.y,
+					hit = i,
+					id = proj.id
+				}
+			end
 		end
 	end)
 	return collision
