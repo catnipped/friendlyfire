@@ -313,9 +313,11 @@ function updateplayers(state, events, sectors, time)
 		if btn(2,lp.id-1) then 
 			if btn(5,lp.id-1) then 
 				lp.vy = -2
-				poof = spawngfx("poof",lp.x,lp.y)
-				add(lstate.animations, poof)
-				sfx(26)
+				if lp.death == false then
+					poof = spawngfx("poof",lp.x,lp.y)
+					add(lstate.animations, poof)
+					sfx(26)
+				end
 			else
 				lp.vy += -0.1
 			end
@@ -323,37 +325,55 @@ function updateplayers(state, events, sectors, time)
 		if btn(3,lp.id-1) then 
 			if btn(5,lp.id-1) then 
 				lp.vy = 2
-				poof = spawngfx("poof",lp.x,lp.y)
-				add(lstate.animations, poof)
-				sfx(26)
+				if lp.death == false then
+					poof = spawngfx("poof",lp.x,lp.y)
+					add(lstate.animations, poof)
+					sfx(26)
+				end
 			else
 				lp.vy += 0.1
 			end
 		end
 		if btn(0,lp.id-1) then 
-				if btn(5,lp.id-1) then 
+			if btn(5,lp.id-1) then 
 					lp.vx = -2
-					poof = spawngfx("poof",lp.x,lp.y)
-					add(lstate.animations, poof)
-					sfx(26)
+					if lp.death == false then
+						poof = spawngfx("poof",lp.x,lp.y)
+						add(lstate.animations, poof)
+						sfx(26)
+					end
 				else
 					lp.vx += -0.1 
 				end
 			end
 		if btn(1,lp.id-1) then 
-			if btn(5,lp.id-1) then
+			if btn(5,lp.id-1) then 
 				lp.vx = 2
-				poof = spawngfx("poof",lp.x,lp.y)
-				add(lstate.animations, poof)
-				sfx(26)
+				if lp.death == false then
+					poof = spawngfx("poof",lp.x,lp.y)
+					add(lstate.animations, poof)
+					sfx(26)
+				end
 			else 
 				lp.vx += 0.1 
 			end
 		end
-		if lp.x > (lbounds.x+lbounds.w) then lp.vx -= 0.15 end
-		if lp.x < (lbounds.x) then lp.vx += 0.15 end
-		if lp.y > (lbounds.y+lbounds.h) then lp.vy -= 0.15 end
-		if lp.y < (lbounds.y) then lp.vy += 0.15 end
+		if lp.x > (lbounds.x+lbounds.w) then 
+			if btn(5,lp.id-1) then lp.vx -= 2.5 
+			else lp.vx -= 0.15 end
+		end
+		if lp.x < (lbounds.x) then 
+			if btn(5,lp.id-1) then lp.vx += 2.5
+			else lp.vx += 0.15 end
+		end
+		if lp.y > (lbounds.y+lbounds.h) then 
+			if btn(5,lp.id-1) then lp.vy -= 2.5 
+			else lp.vy -= 0.15 end
+		end
+		if lp.y < (lbounds.y) then 
+			if btn(5,lp.id-1) then lp.vy += 2.5 
+			else lp.vy += 0.15 end
+		end
 		lp.vy = mid(lp.vy, -4, 4)
 		lp.vx = mid(lp.vx, -4, 4)
 		lp.cam = updatecam(lp)
