@@ -91,7 +91,7 @@ function _init()
 	}
 	
 	printh("init")
-	for i = 1,4 do
+	for i = 1,1 do
 		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"orb",state))
 		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien",state))
 		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"robot",state))
@@ -293,21 +293,40 @@ function cleanup(state)
 end
 
 function respawn(p)
+	lp = p
+	lp.death = false
+	lp.energy = 0
+	lp.invulnerable = state.time
+	return lp
 end
 
 -- player
 function updateplayers(state, events, sectors, time)
 	lstate = state
 	lstate.players = funmap(state.players, function(lp)
-		lp.energy += 1/state.time
-		if lp.death and lp.energy > 100 then respawn(p) end
+		lp.energy += 5/60
+		local lbounds = const.bounds[lp.id]
+		lp.x += lp.vx
+		lp.y += lp.vy
+		lp.vx = lerp(lp.vx, 0, 0.05)
+		lp.vy = lerp(lp.vy, 0, 0.05)
+		if btn(2,lp.id-1) then lp.vy += -0.1 end
+		if btn(3,lp.id-1) then lp.vy += 0.1 end
+		if btn(0,lp.id-1) then lp.vx += -0.1 end
+		if btn(1,lp.id-1) then lp.vx += 0.1 end
+	
+		if lp.x > (lbounds.x+lbounds.w) then lp.vx -= 0.15 end
+		if lp.x < (lbounds.x) then lp.vx += 0.15 end
+		if lp.y > (lbounds.y+lbounds.h) then lp.vy -= 0.15 end
+		if lp.y < (lbounds.y) then lp.vy += 0.15 end
+		lp.vy = mid(lp.vy, -4, 4)
+		lp.vx = mid(lp.vx, -4, 4)
+		lp.cam = updatecam(lp)
+		if lp.death and lp.energy > 100 then lp = respawn(lp) end
 		if lp.death == false then
 			if lp.energy > 100 then lp.shield = true lp.energy = 0 end
-			local lbounds = const.bounds[lp.id]
-			lp.x += lp.vx
-			lp.y += lp.vy
-			lp.vx = lerp(lp.vx, 0, 0.05)
-			lp.vy = lerp(lp.vy, 0, 0.05)
+			
+		
 			local neighbours = myneighbours(lp.x,lp.y,sectors)
 			if playercolcheck(lp,neighbours) and isinvulnerable(lp) == false then
 				if lp.shield == true then 
@@ -339,18 +358,7 @@ function updateplayers(state, events, sectors, time)
 			else
 				lp.rateoffire[1] -= 0.05
 			end
-			if btn(2,lp.id-1) then lp.vy += -0.1 end
-			if btn(3,lp.id-1) then lp.vy += 0.1 end
-			if btn(0,lp.id-1) then lp.vx += -0.1 end
-			if btn(1,lp.id-1) then lp.vx += 0.1 end
-		
-			if lp.x > (lbounds.x+lbounds.w) then lp.vx -= 0.15 end
-			if lp.x < (lbounds.x) then lp.vx += 0.15 end
-			if lp.y > (lbounds.y+lbounds.h) then lp.vy -= 0.15 end
-			if lp.y < (lbounds.y) then lp.vy += 0.15 end
-			lp.vy = mid(lp.vy, -4, 4)
-			lp.vx = mid(lp.vx, -4, 4)
-			lp.cam = updatecam(lp)
+			
 		end
 		return lp
 	end)
@@ -1039,7 +1047,7 @@ end
 -->8
 --draw functions below
 function _draw()
-	 if every(1) then cls() end
+	cls()
 
 	drawplayerviewport(state.players[2],0,61,-16)
 	drawplayerviewport(state.players[1],68,128,-112)
@@ -1063,12 +1071,13 @@ end
 
 function drawplayerviewport(p,y1,y2,yoffset)
 	clip(0,y1,128,y2)
+	
 	camera(p.cam.x-64,p.cam.y+yoffset)
 	pal()
 	local cambounds = {x1 = p.cam.x-64, x2 = p.cam.x+64, y1 = p.cam.y+y1+yoffset, y2 = p.cam.y+y2+yoffset}
 
-	drawstars(p)
 	drawgrid(p)
+	drawstars(p)
 	drawenemies(p,cambounds,y1,y2,yoffset)
 	for player in all(state.players) do
 		if player.death ~= true then
@@ -1077,6 +1086,8 @@ function drawplayerviewport(p,y1,y2,yoffset)
 			else
 				drawplayer(player, p, y1, y2, yoffset) 
 			end
+		else
+			drawdeadplayer(player)
 		end
 	end
 	drawprojectiles(p,cambounds,y1,y2,yoffset)
@@ -1085,6 +1096,24 @@ function drawplayerviewport(p,y1,y2,yoffset)
 	end
 	
 	pal()
+end
+
+function drawdeadplayer(p)
+			flipy = nil
+			yoffset = 0
+			if p.id == 2 then flipy = true yoffset = 1 end
+			if every(2) then 
+				clr = 5
+				if p.energy > 95 and every(4) then clr = 7 end
+				line(p.x-4,p.y,p.x-6,p.y,clr)
+				line(p.x+4,p.y,p.x+6,p.y,clr)
+				line(p.x,p.y+7,p.x,p.y+9,clr)
+				line(p.x,p.y-7,p.x,p.y-9,clr)
+				rect(p.x-4,p.y-7,p.x+4,p.y+7,clr)
+				rectfill(p.x-4,p.y+7,p.x+4,p.y+7-flr(p.energy*0.14),clr)
+				palt(15,true) palt(0,false) spr(3,p.x-3,p.y-8+yoffset,1,2,false,flipy) palt() 
+				drawmini(""..flr(p.energy),p.x+6,p.y+5,clr)
+			end
 end
 
 function drawstars(p)
@@ -1135,13 +1164,13 @@ function drawplayer (p1,p2,y1,y2,yoffset)
 		if every(60,0,40) then spr(11+p1.id,x-1,y-1) end
 	end
 	if p1.shield then 
-		if every(4,0,2) then
+		if every(3) then
 			circ(p1.x,p1.y,p1.shieldrad,11)
 		end
-	else
-		local x = flr(p1.x)
-		local y = flr(p1.y)
-		line(x + 6, y + 6, x + 6, y + 6-p1.energy/10,11)
+	elseif every(2) then
+		clr = 5
+		if p1.energy > 95 then clr = 11 end
+		drawmini(""..flr(p1.energy),p1.x+6,p1.y+4,clr)
 	end
 	palt(15,true)
 	palt(0,false)
@@ -1179,12 +1208,22 @@ function drawscore (score, x, y)
 	end
 end
 
+function drawmini (score, x, y,clr)
+pal(7,clr)
+ for n = 1,#score do
+    local nr = 0 .. sub(score, n,n)
+   	 spr(64+nr,((n-1)*5)+x,y)
+	end
+pal()
+end
+
 function drawui()
 	rect(-1,61,128,67,5)
-	drawscore("" .. state.score ,4,60)
-	for i = 1,state.lives do 
-		spr(3,128-i*8,62)
+	if state.players[1].shield ~= true then
+			clr = 11
+			pset(state.players[1].energy*1.28, 67, clr)
 	end
+	drawscore("" .. state.score ,4,60)
 	pal()
 	--debug
 	local percent = flr(stat(1)*100)
@@ -1193,22 +1232,22 @@ end
 
 
 __gfx__
-00000000ffffffffffffffff00000000ff7777fff77777fff07770ffff77ffffffffffffffffff7777ffffff00000000f0000ffff00000ff22220000ff0000ff
-00000000fff0fffffff0ffff07770700f777777f7000007f0777770ff7787fffff77ffffffff77000077ffff000000000bbbb0ff0bbbbb0f22220000f088880f
-00700700ff070fffff070fff70007000770000777070707f78777870777887fff7e87ffffff7000000007fff00000000f0bbb0fff0bbbb0f222200000880880f
-00077000f07770fff07770ff07770700700000077007007f78878870788007fff7807fffff700770000007ff00000000f0bbb0ff0bbbb0ff000000000888880f
-00077000f07770fff07770ff00000000770000777070707f78878870f7807fffff77fffff70077700000007f000000000bbbbb0f0bbbbb0f00000000088000ff
-007007000770770f0777070f00000000f777777f7000007f0787870fff77fffffffffffff70777000000007f00000000f00000fff00000ff00000000f00fffff
-000000000700070f0770000f00000000ff7777fff77777ff0777770fffffffffffffffff700770000000000700000000ffffffffffffffff00000000ffffffff
-000000000770770f0777070f00000000fffffffffffffffff07770ffffffffffffffffff700000000000000700000000ffffffffffffffff00000000ffffffff
-070000000777770f0777770f00000000f777777ffffff7ff777fffffff7ff7ff7000007070000000000000070000000000000000000000000000000000000000
-77700000f07770fff07770ff0000000070000007ff7ff7ffff7fff7ff777f7ff7700077070000000000007070000000000000000000000000000000000000000
-07000000f07770fff07770ff000000007000000777777777f777777f7700077778707870f70000000000007f0000000000000000000000000000000000000000
-000000000777770ff07770ff0000000070000007fffffffffffffffff70007ff78878870f70000000000707f0000000000000000000000000000000000000000
-00000000777077700777770f0000000000000007ffffffffff77777ff70007ff78707870ff700000000707ff0000000000000000000000000000000000000000
-00000000770f07700770770f0000000070000007777fff77777fff77777777ff77000770fff7000007007fff0000000000000000000000000000000000000000
-0000000070fff070070f070f0000000070000007ff7f777fff7ff77fff7ff7ff70000070ffff77000077ffff0000000000000000000000000000000000000000
-000000000fffff0ff0fff0ff00000000f777707ffffff7ffff7ff7ffff7ff7ff00000000ffffff7777ffffff0000000000000000000000000000000000000000
+00000000ffffffffffffffffffffffffff7777fff77777ffff777fffff77ffffffffffffffffff7777ffffff00000000f0000ffff00000ff22220000ff0000ff
+00000000fffffffffffffffffffffffff777777f7000007ff77777fff7787fffff77ffffffff77000077ffff000000000bbbb0ff0bbbbb0f22220000f088880f
+00700700fff7fffffff7fffffff0ffff770000777070707f7877787f777887fff7e87ffffff7000000007fff00000000f0bbb0fff0bbbb0f222200000880880f
+00077000ff777fffff777fffff000fff700000077007007f7887887f788007fff7807fffff700770000007ff00000000f0bbb0ff0bbbb0ff000000000888880f
+00077000ff777fffff777fffff000fff770000777070707f7887887ff7807fffff77fffff70077700000007f000000000bbbbb0f0bbbbb0f00000000088000ff
+00700700f77077fff77707fff00f00fff777777f7000007ff78787ffff77fffffffffffff70777000000007f00000000f00000fff00000ff00000000f00fffff
+00000000f70007fff77000fff0fff0ffff7777fff77777fff77777ffffffffffffffffff700770000000000700000000ffffffffffffffff00000000ffffffff
+00000000f77077fff77707fff00f00ffffffffffffffffffff777fffffffffffffffffff700000000000000700000000ffffffffffffffff00000000ffffffff
+07000000f77777fff77777fff00000fff777777ffffff7ff777fffffff7ff7ff0000000070000000000000070000000000000000000000000000000000000000
+77700000ff777fffff777fffff000fff70000007ff7ff7ffff7fff7ff777f7ff0000000070000000000007070000000000000000000000000000000000000000
+07000000ff777fffff777fffff000fff7000000777777777f777777f7700077700000000f70000000000007f0000000000000000000000000000000000000000
+00000000f77777ffff777ffff00000ff70000007fffffffffffffffff70007ff00000000f70000000000707f0000000000000000000000000000000000000000
+00000000777f777ff77777ff000f000f00000007ffffffffff77777ff70007ff00000000ff700000000707ff0000000000000000000000000000000000000000
+0000000077fff77ff77f77ff00fff00f70000007777fff77777fff77777777ff00000000fff7000007007fff0000000000000000000000000000000000000000
+000000007fffff7ff7fff7ff0fffff0f70000007ff7f777fff7ff77fff7ff7ff00000000ffff77000077ffff0000000000000000000000000000000000000000
+00000000fffffffffffffffffffffffff777707ffffff7ffff7ff7ffff7ff7ff00000000ffffff7777ffffff0000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 77777777777777707777777777777777007777707777777777777777777777777777777777777777077700000000000000000000000000000000000000000000
 70007007070000700007000700007007070700707000700070007000000700077000700770007007070700000000000000000000000000000000000000000000
@@ -1225,6 +1264,9 @@ e777777b700007700770007000700700700077707007070770070707070000707000700070007007
 eee77bbb700070007007770700700700700070077007770770070707070000707000700070007007000000000000000000000000000000000000000000000000
 0eeebbb0700070007007070700700700700070077007070770070707070000707000700070007007000000000000000000000000000000000000000000000000
 000eb000777777777777077700777700777770077777077777770777777777777777777777777777000000000000000000000000000000000000000000000000
+77770000777000007770000077770000707700000777000070000000777700007777000077770000000000000000000000000000000000000000000000000000
+70070000077000000770000007770000777700000770000077770000077700007777000077770000000000000000000000000000000000000000000000000000
+77770000777700000777000077770000007700007770000077770000077700007777000000070000000000000000000000000000000000000000000000000000
 __map__
 3030300030300000303030003030300030303000303000003000000030003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 3000000030003000003000003030000030003000300030003000000030003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
