@@ -12,7 +12,7 @@ __lua__
 function _init()
 	music(1)
 	const = {
-		music = {0,4,8,-1},
+		music = {0,4,8},
 		bounds = {
 			{x = 200, y = 350, w = 200, h = 100},
 			{x = 200, y = 200, w = 200, h = 100},
@@ -88,15 +88,15 @@ function _init()
 	}
 	
 	printh("init")
-	for i = 1,2 do
-		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"orb",state))
-		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien",state))
-		add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"robot",state))
-		local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
-		state.enemies = generatespacetrash(flr(rnd(10)),origin,state.enemies)
-	end
-	local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
-	generatesnake(8,origin,const.vector.right,state.enemies)
+	-- for i = 1,2 do
+	-- 	add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"orb",state))
+	-- 	add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien",state))
+	-- 	add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"robot",state))
+	-- 	local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
+	-- 	state.enemies = generatespacetrash(flr(rnd(10)),origin,state.enemies)
+	-- end
+	-- local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
+	-- generatesnake(8,origin,const.vector.right,state.enemies)
 end
 
 function initstars(a,layer)
@@ -192,6 +192,38 @@ function lerp(a,b,t)
 	return c
 end
 
+function wavesystem(state)
+	local enemies = {"alien","robot","spacetrash","orb","snake"}
+	local time = state.time
+	local difficulty = flr(time/15)
+	local things = {}
+
+	while every(60*(15-difficulty)) and #state.enemies+#things < 5+difficulty and stat(1) < 0.9 do
+	 	if difficulty < 2 then
+	 		add(things,"alien")
+	 	elseif difficulty < 4 then
+	 		add(things,enemies[2+flr(rnd(2))])
+		elseif difficulty < 5 then
+			add(thing,"snake")
+		end
+	end
+	for thing in all(things) do
+		if thing == "spacetrash" then
+			local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
+
+				state.enemies = generatespacetrash(3+flr(rnd(difficulty)),origin,state.enemies)
+			elseif thing == "snake" then
+				local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
+
+				state.enemies = generatesnake(5+flr(rnd(difficulty)),origin,const.vector.right,state.enemies)
+			elseif thing then
+				local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
+
+				add(state.enemies, spawnenemy(origin,thing,state))
+			end
+	end
+	return state
+end
 
 -->8
 --update functions below
@@ -207,21 +239,15 @@ function  _update60()
 	lstate = updateplayers(lstate, events, sectors, lstate.time)
 	lstate.enemies = updateenemies(lstate.enemies, lstate, events, sectors)
 	lstate.projectiles = updateprojectiles(lstate.projectiles, sectors)
-	
-
-	--printh(isinsector(state.players[1].x,state.players[1].y)[1] .. "/" .. isinsector(state.players[1].x,state.players[1].y)[2] )
-	--printh(#myneighbours(state.players[1].x,state.players[1].y,sectors))
-
+	lstate = wavesystem(lstate)
 	events = returncollisions(events,lstate, sectors)
 	events = updateevents(lstate,events)
 	lstate.animations = updateanims(lstate.animations)
 	lstate = cleanup(lstate)
 	lstate.time += 1/60
-	-- if every(rnd(1000)) and #lstate.enemies < 8 then
-	-- 	add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien"))
-	-- end
+
 	state = lstate
---	printh("memory: ".. (stat(0)/1024))
+
 end
 
 
@@ -387,7 +413,6 @@ function updateplayers(state, events, sectors, time)
 					lp.shield = false
 					lp.energy = 0
 					lp.invulnerable = state.time
-					printh("lose shield!")
 					local loseshield = spawngfx("loseshield",lp.x,lp.y)
 					add(lstate.animations,loseshield)
 					sfx(24)
@@ -465,8 +490,6 @@ function returncollisions(events, state, sectors)
 			local collision = projcollisioncheck(i, sectors)
 			if collision ~= nil then
 				i.death = true
-
-				printh(collision.hit.subtype)
 				add(levents, {type = "collision", object = collision})
 			else
 				i.death = false
@@ -493,7 +516,6 @@ function projcollisioncheck(proj,sectors)
 		if i.shield then lrad = i.shieldrad end
 		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" then
 			if (i.type == "enemy" and proj.origin == "player") or (i.type == "player" and proj.origin == "enemy") then
-		--	printh("collision!")
 				collision = {
 					x = proj.x,
 					y = proj.y,
@@ -662,14 +684,14 @@ function spawnenemy(pos,type,state)
 					lerp(enemy.vector[1],directionofplayer[1],0.01),
 					lerp(enemy.vector[2],directionofplayer[2],0.01),
 				}
-				if every(flr(rnd(360+1000))) and stat(1) < 0.9 then
+				if every(160,enemy.id) and stat(1) < 0.9 then
 					enemy.projdir = directionofplayer
 					local projgfx = function(proj) 
 						local color = 7
 						if every(3,0,2) then color = proj.color end
 						circfill(proj.x,proj.y,proj.rad,color)
 					end
-					local lproj = spawnprojectile(enemy,projgfx,8)
+					local lproj = spawnprojectile(enemy,projgfx,8,1,0.5)
 					add(events,{type = "projectile", object = lproj}) 
 					sfx(20)
 				end
@@ -873,7 +895,7 @@ function coinflip()
 end
 
 function getclosestplayer(x,y)
-	local p = {x = 0, y = 0}
+	local p = {x = const.bounds[2].x + rnd(200), y = const.bounds[2].y + rnd(200)}
 	local p1 = state.players[1]
 	local p2 = state.players[2]
 	local distance1 = abs((p1.x+p1.y)-(x+y))
@@ -965,7 +987,6 @@ function updateevents(state,events)
 						p.shield = false
 						p.energy = 0
 						p.invulnerable = state.time
-						printh("lose shield!")
 						local loseshield = spawngfx("loseshield",i.object.hit.x,i.object.hit.y)
 						add(lstate.animations,loseshield)
 						sfx(24)
@@ -1331,10 +1352,7 @@ end
 
 function drawui()
 	rect(-1,61,128,67,5)
-	if state.players[1].shield ~= true then
-			clr = 11
-			pset(state.players[1].energy*1.28, 67, clr)
-	end
+	
 	local scorestring = "" .. flr(state.score)
 	drawscore(scorestring, 4,60)
 	local multiplier = "" .. state.multiplier
