@@ -85,6 +85,7 @@ function _init()
 		projectiles = {},
 		animations = {},
 		time = 0,
+		difficulty = 0
 	}
 	
 	printh("init")
@@ -123,7 +124,7 @@ end
 
 function vectornormalized(vector)
 	local factor = 1/(abs(vector[1])+abs(vector[2]))
-	return {vector[1]*factor,vector[2]*factor}
+	return {mid(-1,vector[1]*factor,1),mid(-1,vector[2]*factor,1)}
 end
 
 function sloppysqrt(x)
@@ -194,28 +195,56 @@ end
 
 function wavesystem(state)
 	local enemies = {"alien","robot","spacetrash","orb","snake"}
+	local state = state
 	local time = state.time
-	local difficulty = flr(time/15)
+	local spawn = false
+	if every(60*15,14) then
+		state.difficulty += 1
+
+		printh("diff:"..state.difficulty)
+		printh("enem:"..#state.enemies)
+	end
+	local difficulty = state.difficulty
 	local things = {}
 
-	while every(60*(15-difficulty)) and #state.enemies+#things < 5+difficulty and stat(1) < 0.9 do
+	if #state.enemies == 0 then
+		state.difficulty += 1
+		spawn = true
+		printh("diff:"..state.difficulty)
+		printh("enem:"..#state.enemies)
+	end
+	while (every(60*(mid(2,difficulty,15))) or spawn) and #state.enemies+#things < 0+mid(5,difficulty,30) and stat(1) < 0.9 do
 	 	if difficulty < 2 then
-	 		add(things,"alien")
+	 		add(things,"robot")
 	 	elseif difficulty < 4 then
 	 		add(things,enemies[2+flr(rnd(2))])
 		elseif difficulty < 5 then
-			add(thing,"snake")
+			add(things,"snake")
+		elseif difficulty < 6 then
+			add(things,"alien")
+			add(things,"alien")
+			add(things,"spacetrash")
+		elseif difficulty < 9 then
+			add(things,"robot")
+			add(things,"orb")
+		elseif difficulty < 10 then
+			add(things,"snake")
+			add(things,"snake")
+		else
+			add(things,enemies[1+flr(rnd(#enemies))])
+		end
+		if #state.enemies+#things > mid(5,difficulty,20) then
+			printh("enem:"..#state.enemies+#things)
 		end
 	end
 	for thing in all(things) do
 		if thing == "spacetrash" then
 			local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
 
-				state.enemies = generatespacetrash(3+flr(rnd(difficulty)),origin,state.enemies)
+				state.enemies = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,state.enemies)
 			elseif thing == "snake" then
 				local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
-
-				state.enemies = generatesnake(5+flr(rnd(difficulty)),origin,const.vector.right,state.enemies)
+				state.enemies = generatesnake(5+min(flr(difficulty/4),5),origin,const.vector.right,state.enemies)
 			elseif thing then
 				local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
 
@@ -408,7 +437,7 @@ function updateplayers(state, events, sectors, time)
 			
 		
 			local neighbours = myneighbours(lp.x,lp.y,sectors)
-			if playercolcheck(lp,neighbours) and isinvulnerable(lp) == false then
+			if every(4,lp.id) and playercolcheck(lp,neighbours) and isinvulnerable(lp) == false then
 				if lp.shield == true then 
 					lp.shield = false
 					lp.energy = 0
@@ -483,10 +512,12 @@ end
 -- collisions
 function returncollisions(events, state, sectors)
 	local levents = {}
+	local nr = 0
 	each(state.projectiles, function(i)
 		local offset = 0
+		nr += 1
 		if stat(1) > 0.9 then offset = 3 end
-		if every(4+offset,(isinsector(i.x,i.y)[2] % 4+offset)) then
+		if every(4+offset,nr % 4+offset) then
 			local collision = projcollisioncheck(i, sectors)
 			if collision ~= nil then
 				i.death = true
@@ -510,19 +541,22 @@ end
 
 function projcollisioncheck(proj,sectors)
 	collision = nil
-	local neighbours = myneighbours(proj.x,proj.y,sectors)
+	local neighbours = {} 
+	if proj.origin == "player" then
+		neighbours = myneighbours(proj.x,proj.y,sectors)
+	elseif proj.origin == "enemy" then
+		neighbours = state.players
+	end
 	each(neighbours, function(i)
 		local lrad = i.rad
 		if i.shield then lrad = i.shieldrad end
 		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" then
-			if (i.type == "enemy" and proj.origin == "player") or (i.type == "player" and proj.origin == "enemy") then
-				collision = {
-					x = proj.x,
-					y = proj.y,
-					hit = i,
-					id = proj.id
-				}
-			end
+			collision = {
+				x = proj.x,
+				y = proj.y,
+				hit = i,
+				id = proj.id
+			}
 		end
 	end)
 	return collision
@@ -631,7 +665,7 @@ function spawnenemy(pos,type,state)
 			velocity = 0.3,
 			movement = function(enemy, state, events)	
 				local time = state.time
-				if every(120) then
+				if every(120) or enemy.vector == {0,0} then
 					local vlist = {const.vector.up,const.vector.left,const.vector.down,const.vector.right}
 					enemy.vector = vlist[1+flr(rnd(4))]
 					enemy.projdir = {-enemy.vector[1],-enemy.vector[2]}
@@ -639,7 +673,7 @@ function spawnenemy(pos,type,state)
 				if outofbounds(enemy,const.combinedbounds) then
 					enemy.vector = {-enemy.vector[1],-enemy.vector[2]}
 				end
-				if every(180) then
+				if every(180) and enemy.projdir ~= {0,0} then
 					local rectgfx = function (proj)
 						local colors = {14,7,11,8}
 						fillp(flr(rnd(9999)))
@@ -684,7 +718,7 @@ function spawnenemy(pos,type,state)
 					lerp(enemy.vector[1],directionofplayer[1],0.01),
 					lerp(enemy.vector[2],directionofplayer[2],0.01),
 				}
-				if every(160,enemy.id) and stat(1) < 0.9 then
+				if every(160,(enemy.id%160)) and stat(1) < 0.9 then
 					enemy.projdir = directionofplayer
 					local projgfx = function(proj) 
 						local color = 7
@@ -700,6 +734,9 @@ function spawnenemy(pos,type,state)
 			gfx = function(enemy, time)
 				palt(0,false)
 				palt(15,true)
+				if every(160,(enemy.id%160)+30,30) == false then
+					pal(8,0)
+				end
 				spr(6,enemy.x-3,enemy.y-4) 
 			end
 		}
@@ -730,7 +767,7 @@ function generatesnake(size,origin,direction,enemies)
 		movement = function(enemy,state,events) 
 			if every(10) then
 				local target = getclosestplayer(enemy.x,enemy.y)
-				
+				enemy.velocity += 0.01
 				local directionoftarget = vectornormalized(vectora2b(enemy,target))
 				enemy.vector = {
 					lerp(enemy.vector[1],directionoftarget[1],0.01),
@@ -781,6 +818,7 @@ function generatesnake(size,origin,direction,enemies)
 				if target == nil then 
 					enemy.movement = function(enemy,state,events) 
 						if every(10) then
+							enemy.velocity += 0.01
 							local target = getclosestplayer(enemy.x,enemy.y)
 							local directionoftarget = vectornormalized(vectora2b(enemy,target))
 							enemy.vector = {
@@ -790,6 +828,7 @@ function generatesnake(size,origin,direction,enemies)
 						end
 					end
 				else
+					enemy.velocity = target.velocity
 					if collisioncheck(enemy.x,enemy.y,target.x,target.y,enemy.rad*2,target.rad) then
 						enemy.vector = {0,0}
 					else
@@ -919,14 +958,6 @@ function updateenemies(e, state, events, sectors)
 	local les = {}
 	les = filter(e, function(le)
 	
-		-- local neighbours = myneighbours(le.x,le.y,sectors)
-		-- -- each(neighbours, function(i)
-		-- -- 	if (i ~= le) and collisioncheck(le.x, le.y, i.x, i.y, le.rad, i.rad) then
-		-- -- 		local vector = normalizedvectora2b(le,i,le.vector)
-		-- -- 		le.x -= vector[1] * (le.velocity *3)
-		-- -- 		le.y -= vector[2] * (le.velocity *3)
-		-- -- 	end
-		-- -- end)
 		le.x += le.vector[1] * le.velocity
 		le.y += le.vector[2] * le.velocity
 		
@@ -966,6 +997,10 @@ function updateevents(state,events)
 	each (newprojs, function (i)
 		add(lstate.projectiles, i.object)
 		local object = spawngfx("flare",i.object.x,i.object.y)
+		
+		if i.object.color == 8 then
+			object = spawngfx("eflare",i.object.x,i.object.y)
+		end
 		add(lstate.animations,object)
 	end)
 
@@ -1108,6 +1143,19 @@ function spawngfx(type, lx, ly)
 			gfx = function(gfx)
 				local clr = 7
 				if every(3,0,2) then clr = 11 end
+				circfill(gfx.x,gfx.y,4-gfx.frame/2,clr)
+			end	
+		}
+	end
+	if type == "eflare" then
+		gfx = {
+			frame = 0,
+			runtime = 5,
+			x = lx,
+			y = ly,
+			gfx = function(gfx)
+				local clr = 7
+				if every(3,0,2) then clr = 8 end
 				circfill(gfx.x,gfx.y,4-gfx.frame/2,clr)
 			end	
 		}
@@ -1268,7 +1316,7 @@ function drawenemies(p, cambounds,y1,y2,yoffset)
 		if outofbounds(enemy,cambounds) then 
 			local x = mid((enemy.x),p.cam.x-66,p.cam.x+64)
 			local y = mid((enemy.y),p.cam.y+y1+yoffset-1,p.cam.y+y2+yoffset)
-			if enemy.velocity > 0.5 then pal(2,8) end
+			if enemy.velocity > 0.4 and every(8-enemy.velocity) then pal(8,7) end
 			if every(30-enemy.velocity*10,0,enemy.velocity*10) then spr(14,x-1,y-1) end
 			pal()
 		end
@@ -1317,8 +1365,9 @@ function drawprojectiles(p,cambounds,y1,y2,yoffset)
 		if outofbounds(proj,cambounds) then 
 			local x = mid((proj.x),p.cam.x-64,p.cam.x+63)
 		 	local y = mid((proj.y),p.cam.y+y1+yoffset,p.cam.y+y2+yoffset-1)
-		
-			if every(30-proj.velocity*10,0,proj.velocity*10) then circfill(x,y,0,proj.color) end
+			local color = proj.color
+			if proj.color == 8 then color = 2 end
+			if every(30-proj.velocity*10,0,proj.velocity*10) and p.id ~= proj.id then circfill(x,y,0,color) end
 		else
 			proj.gfx(proj)
 		end
@@ -1367,9 +1416,9 @@ end
 
 
 __gfx__
-00000000ffffffffffffffffffffffffff7777fff77777ffff777fffff77ffffffffffffffffff7777ffffff00000000f0000ffff00000ff22220000ff0000ff
-00000000fffffffffffffffffffffffff777777f7000007ff77777fff7787fffff77ffffffff77000077ffff000000000bbbb0ff0bbbbb0f22220000f088880f
-00700700fff7fffffff7fffffff0ffff770000777070707f7877787f777887fff7e87ffffff7000000007fff00000000f0bbb0fff0bbbb0f222200000880880f
+00000000ffffffffffffffffffffffffff7777fff77777ffff777fffff77ffffffffffffffffff7777ffffff00000000f0000ffff00000ff88880000ff0000ff
+00000000fffffffffffffffffffffffff777777f7000007ff77777fff7787fffff77ffffffff77000077ffff000000000bbbb0ff0bbbbb0f88880000f088880f
+00700700fff7fffffff7fffffff0ffff770000777070707f7877787f777887fff7e87ffffff7000000007fff00000000f0bbb0fff0bbbb0f888800000880880f
 00077000ff777fffff777fffff000fff700000077007007f7887887f788007fff7807fffff700770000007ff00000000f0bbb0ff0bbbb0ff000000000888880f
 00077000ff777fffff777fffff000fff770000777070707f7887887ff7807fffff77fffff70077700000007f000000000bbbbb0f0bbbbb0f00000000088000ff
 00700700f77077fff77707fff00f00fff777777f7000007ff78787ffff77fffffffffffff70777000000007f00000000f00000fff00000ff00000000f00fffff
