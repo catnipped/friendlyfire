@@ -91,7 +91,7 @@ function _init()
 		projectiles = {},
 		animations = {},
 		time = 0,
-		difficulty = 15
+		difficulty = 1
 	}
 	
 	printh("init")
@@ -200,7 +200,7 @@ function lerp(a,b,t)
 end
 
 function wavesystem(state)
-	local enemies = {"alien","robot","spacetrash","orb","snake"}
+	local enemies = {"alien","robot","orb"}
 	local state = state
 	local time = state.time
 	local spawn = false
@@ -220,42 +220,34 @@ function wavesystem(state)
 		printh("enem:"..#state.enemies)
 	end
 	while (every(60*(mid(2,difficulty,15))) or spawn) and #state.enemies+#things < 0+mid(5,difficulty,30) and stat(1) < 0.9 do
-	 	if difficulty < 2 then
-	 		add(things,"robot")
+	 	local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
+		 if difficulty < 2 then
+	 		add(things,spawnenemy(origin,"robot",state))
 	 	elseif difficulty < 4 then
-	 		add(things,enemies[2+flr(rnd(2))])
+	 		local enemy = enemies[1+flr(rnd(2))]
+			add(things,spawnenemy(origin,enemy,state))
 		elseif difficulty < 5 then
-			add(things,"snake")
+			things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,const.vector.right,things)
 		elseif difficulty < 6 then
-			add(things,"alien")
-			add(things,"alien")
-			add(things,"spacetrash")
+			add(things,spawnenemy(origin,"alien",state))
+			add(things,spawnenemy(origin,"alien",state))
+			things = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,things)
 		elseif difficulty < 9 then
-			add(things,"robot")
-			add(things,"orb")
+			add(things,spawnenemy(origin,"robot",state))
+			add(things,spawnenemy(origin,"orb",state))
 		elseif difficulty < 10 then
-			add(things,"snake")
-			add(things,"snake")
+			
+			things = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,things)
 		else
-			add(things,enemies[1+flr(rnd(#enemies))])
+			local enemy = enemies[1+flr(rnd(#enemies))]
+			add(things,spawnenemy(origin,enemy,state))
 		end
 		if #state.enemies+#things > mid(5,difficulty,20) then
 			printh("enem:"..#state.enemies+#things)
 		end
 	end
 	for thing in all(things) do
-		if thing == "spacetrash" then
-			local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
-
-				state.enemies = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,state.enemies)
-			elseif thing == "snake" then
-				local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
-				state.enemies = generatesnake(5+min(flr(difficulty/4),5),origin,const.vector.right,state.enemies)
-			elseif thing then
-				local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
-
-				add(state.enemies, spawnenemy(origin,thing,state))
-			end
+		add(state.enemies,thing)
 	end
 	return state
 end
