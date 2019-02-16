@@ -3,9 +3,15 @@ version 16
 __lua__
 
 --todo
---  wave system
---  menu 
+--  wave system pass 3
+--	spawn points
+--	spawn directions
+--  spawn animation
+-- 	heavier bounding on enemy
+--  menu/highscore 
+--	help screen
 --  game over screen
+--	time bonus
 
 
 --init and help functions below
@@ -85,7 +91,7 @@ function _init()
 		projectiles = {},
 		animations = {},
 		time = 0,
-		difficulty = 0
+		difficulty = 15
 	}
 	
 	printh("init")
@@ -516,7 +522,7 @@ function returncollisions(events, state, sectors)
 	each(state.projectiles, function(i)
 		local offset = 0
 		nr += 1
-		if stat(1) > 0.9 then offset = 3 end
+		if #state.projectiles > 20 then offset = 3 end
 		if every(4+offset,nr % 4+offset) then
 			local collision = projcollisioncheck(i, sectors)
 			if collision ~= nil then
@@ -550,7 +556,7 @@ function projcollisioncheck(proj,sectors)
 	each(neighbours, function(i)
 		local lrad = i.rad
 		if i.shield then lrad = i.shieldrad end
-		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" then
+		if collisioncheck(i.x,i.y,proj.x,proj.y,lrad,proj.rad) and (i.id ~= proj.id) and i.type ~= "projectile" and i.death ~= true then
 			collision = {
 				x = proj.x,
 				y = proj.y,
@@ -661,7 +667,7 @@ function spawnenemy(pos,type,state)
 			y =  pos[2],
 			rad = 6,   
 			vector = {0,0},
-			projdir = {0,0},
+			projdir = {1,0},
 			velocity = 0.3,
 			movement = function(enemy, state, events)	
 				local time = state.time
@@ -1027,6 +1033,7 @@ function updateevents(state,events)
 						sfx(24)
 					elseif isinvulnerable(p) == false then
 						p.death = true
+						state.multiplier = 10
 						sfx(24)
 						sfx(17)
 						sfx(19)
@@ -1291,15 +1298,17 @@ end
 function drawstars(p)
 	local starcolors = {5,6,7}
 	for l = 1,#const.stars do
-		for s in all(const.stars[l]) do
-				pset((p.cam.x / l+5)*0.9+s[1]-128,(p.cam.y / l+5)*0.9+s[2]-128,starcolors[l])
+		if #state.enemies < 10*(l+1) then
+			for s in all(const.stars[l]) do
+					pset((p.cam.x / l+5)*0.9+s[1]-128,(p.cam.y / l+5)*0.9+s[2]-128,starcolors[l])
+			end
 		end
 	end
 end
 
 function drawgrid(p)
 	local box = const.bounds[p.id]
-		if every(2,0) then 
+		if every(2,0) or stat(1) >= 1 then 
 			for x = box.x,box.x+box.w,50 do
 				line(x,box.y,x,box.y+box.h,5)
 			end
