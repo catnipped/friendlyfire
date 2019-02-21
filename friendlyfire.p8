@@ -12,6 +12,7 @@ __lua__
 --	help screen
 --  game over screen
 --	time bonus
+--  get set cartridge data
 
 
 --init and help functions below
@@ -43,26 +44,18 @@ function _init()
 	const = protect(const)
 
 	state = initgame()
-	sessionscore = {"2468",{10,21},{2,5}}
-	scores = {
-		{"2468",{10,21},{2,5}},
-		{"10943",{2,4},{4,6}},
-		{"199",{15,20},{8,8}},
-		{"334",{18,17},{3,5}},
-		{"353536",{8,9},{17,18}},
-		{"2468",{10,21},{2,5}},
-		{"10943",{2,4},{4,6}},
-		{"199",{15,20},{8,8}},
-		{"334",{18,17},{3,5}},
-		{"353536",{8,9},{17,18}},
-	}
+	sessionscore = {2468,{10,21},{2,5}}
+	cartdata(1)
+	scores = getscores()
+	scores = getscores({334,{18,17},{3,5}})
+	scores = isnewscore(scores,state)
 	xoffset = 0
 	printh("init")
 end
 
 function initgame()
 	local state = {
-		score = 0,
+		score = 23456,
 		multiplier = 10,
 		lastpoints = 0,
 		lives = 3,
@@ -274,6 +267,91 @@ function _update60()
 	 updategameover()
 	end
 end
+
+
+function updategameover()
+	
+end
+
+function sort(a,cmp)
+  for i=1,#a do
+    local j = i
+    while j > 1 and cmp(a[j-1],a[j]) do
+        a[j],a[j-1] = a[j-1],a[j]
+    j = j - 1
+    end
+  end
+end
+
+function getscores(newscore)
+	local lscores = {}
+	local newscoreoffset = 0
+	if newscore ~= nil then add(lscores,newscore) newscoreoffset = 5 end
+	for s = 1,50-newscoreoffset,5 do
+		
+		if dget(s) == nil then dset(s,0) end
+		if dget(s+1) == nil then dset(s+1,0) end
+		if dget(s+2) == nil then dset(s+2,0) end
+		if dget(s+3) == nil then dset(s+3,0) end
+		if dget(s+4) == nil then dset(s+4,0) end
+
+		local score = dget(s)
+		add(lscores,{
+			score,
+			{dget(s+1),dget(s+2)},
+			{dget(s+3),dget(s+4)},
+			false
+		})
+		
+	end
+	
+	sort(lscores, function(a, b)
+		return a[1] < b[1]
+	end)
+
+	return lscores
+end
+
+function setscores()
+	for s = 1,50,5 do
+		local nr = min(1,flr(s/5))
+		local score = scores[nr][1]
+		local callsign1 = scores[nr][2]
+		local callsign2 = scores[nr][3]
+		dset(s,score)
+		dset(s+1,callsign1[1])
+		dset(s+2,callsign1[2])
+		dset(s+3,callsign2[1])
+		dset(s+4,callsign2[2])
+	end
+end
+
+function isnewscore(scores,state)
+	lscores = scores
+	printh(state.score)
+	for s in all(scores) do
+		if state.score > s[1] then
+			printh("new score!")
+			lscores = getscores({
+				state.score,
+				state.players[1].callsign,
+				state.players[2].callsign,
+				true
+			})
+			break
+		end
+	end
+	if state.score > sessionscore[1] then 
+		sessionscore = {
+			state.score,
+			state.players[1].callsign,
+			state.players[2].callsign,
+			true
+		}
+	else sessionscore[4] = false end
+	return lscores
+end
+
 
 function updatehighscores()
 	state.time += 1/60
@@ -1351,26 +1429,27 @@ function drawhighscores()
 	
 
 	camera(-50+xoffset)
-	drawascore(0, 84,80,true)
+	drawascore(0, 84,80)
 	print("ALL TIME",84*2.5,80-12,5)
 	for i = 1, #scores do
-		drawascore(i, (i+1.5)*84,80,true)
+		drawascore(i, (i+1.5)*84,80)
 	end
 	pal()
 end
 
-function drawascore(nr,x,y,new)
+function drawascore(nr,x,y)
 	local clrs = {7,8,14,11}
-	new = new or false
+	new = false
 	local score = ""
 	if nr == 0 then 
 		score = sessionscore
 		print("SESSION",x,y-12,5)
 	else
 		score = scores[nr]
+		new = scores[nr][4]
 	end
 	clr = 7
-	drawscore(score[1],x,y)
+	drawscore(""..score[1],x,y)
 	if every(16,0,8) and new then 
 			clr = clrs[1+flr(rnd(#clrs))] 
 			print("NEW",x,y-6,clr)
@@ -1384,8 +1463,8 @@ function drawascore(nr,x,y,new)
 end
 
 function drawgameover()
-	-- drawcallsign(state.players[1].callsign,20,30)
-	-- drawcallsign(state.players[2].callsign,20,70)
+	drawcallsign(state.players[1].callsign,20,30)
+	drawcallsign(state.players[2].callsign,20,70)
 end
 
 function drawcallsign(callsign,x,y)
