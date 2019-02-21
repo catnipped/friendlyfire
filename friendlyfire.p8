@@ -16,8 +16,11 @@ __lua__
 
 --init and help functions below
 function _init()
+	screen = "highscores"
 	music(1)
 	const = {
+		callsign = { "01ACID02BITTER03COLD04DEAD05ELECTRIC06FILTHY07GIANT08HOT09ILL10JANKY11KILL12LOST13MEDIOCRE14NASTY15OPTIC16PROUD17QUIRKY18RADICAL19SALTY20TOP21URBAN22VICIOUS23WOKE24XENIAL25YELLOW26ZESTY", "01ARROW02BANANA03CURE04DEATH05ENEMY06FOX07GIANT08HORROR09IDIOT10JUSTICE11KING12LOVE13MASS14NEEDLE15ORANGE16PILOT17QUEEN18RAVEN19SIREN20TERROR21UNCLE22VOICE23WARRIOR24XENO25YOUTH26ZODIAC",
+		},
 		music = {0,4,8},
 		bounds = {
 			{x = 200, y = 350, w = 200, h = 100},
@@ -37,10 +40,28 @@ function _init()
 		},
 		stars = initstars(64,3)
 	}
-
 	const = protect(const)
 
-	state = {
+	state = initgame()
+	sessionscore = {"2468",{10,21},{2,5}}
+	scores = {
+		{"2468",{10,21},{2,5}},
+		{"10943",{2,4},{4,6}},
+		{"199",{15,20},{8,8}},
+		{"334",{18,17},{3,5}},
+		{"353536",{8,9},{17,18}},
+		{"2468",{10,21},{2,5}},
+		{"10943",{2,4},{4,6}},
+		{"199",{15,20},{8,8}},
+		{"334",{18,17},{3,5}},
+		{"353536",{8,9},{17,18}},
+	}
+	xoffset = 0
+	printh("init")
+end
+
+function initgame()
+	local state = {
 		score = 0,
 		multiplier = 10,
 		lastpoints = 0,
@@ -64,7 +85,9 @@ function _init()
 				cooldown = -1, 
 				rateoffire = {0,0.3},
 				death = false,
-				invulnerable = 0
+				invulnerable = 0,
+				callsign = {5,18},
+				ready = false
 			},
 			{ id = 2, 
 				type = "player",
@@ -84,7 +107,9 @@ function _init()
 				cooldown = -1, 
 				rateoffire = {0,0.2},
 				death = false,
-				invulnerable = 0
+				invulnerable = 0,
+				callsign = {26,19},
+				ready = false
 			}
 		},
 		enemies = {},
@@ -93,17 +118,7 @@ function _init()
 		time = 0,
 		difficulty = 1
 	}
-	
-	printh("init")
-	-- for i = 1,2 do
-	-- 	add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"orb",state))
-	-- 	add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"alien",state))
-	-- 	add(state.enemies, spawnenemy({const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)},"robot",state))
-	-- 	local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
-	-- 	state.enemies = generatespacetrash(flr(rnd(10)),origin,state.enemies)
-	-- end
-	-- local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
-	-- generatesnake(8,origin,const.vector.right,state.enemies)
+	return state
 end
 
 function initstars(a,layer)
@@ -206,9 +221,6 @@ function wavesystem(state)
 	local spawn = false
 	if every(60*15,14) then
 		state.difficulty += 1
-
-		printh("diff:"..state.difficulty)
-		printh("enem:"..#state.enemies)
 	end
 	local difficulty = state.difficulty
 	local things = {}
@@ -216,8 +228,6 @@ function wavesystem(state)
 	if #state.enemies == 0 then
 		state.difficulty += 1
 		spawn = true
-		printh("diff:"..state.difficulty)
-		printh("enem:"..#state.enemies)
 	end
 	while (every(60*(mid(2,difficulty,15))) or spawn) and #state.enemies+#things < 0+mid(5,difficulty,30) and stat(1) < 0.9 do
 	 	local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
@@ -243,7 +253,6 @@ function wavesystem(state)
 			add(things,spawnenemy(origin,enemy,state))
 		end
 		if #state.enemies+#things > mid(5,difficulty,20) then
-			printh("enem:"..#state.enemies+#things)
 		end
 	end
 	for thing in all(things) do
@@ -254,7 +263,29 @@ end
 
 -->8
 --update functions below
-function  _update60()
+function _update60()
+	if screen == "game" then
+		updategame()
+	elseif screen == "title" then
+		updatetitle()
+	elseif screen == "highscores" then
+		updatehighscores()
+	elseif screen == "gameover" then
+	 updategameover()
+	end
+end
+
+function updatehighscores()
+	state.time += 1/60
+	xoffset += 0.5
+	xoffset = xoffset % (1000)
+end
+
+function updatetitle()
+	state.time += 1/60
+end
+
+function  updategame()
 	if every(44*60) then music(const.music[1+flr(rnd(#const.music))]) end
 	local lstate = state
 	local events = {}
@@ -272,11 +303,31 @@ function  _update60()
 	lstate.animations = updateanims(lstate.animations)
 	lstate = cleanup(lstate)
 	lstate.time += 1/60
-
+	lstate = updatecallsigns(lstate)
 	state = lstate
-
 end
 
+function updatecallsigns(state)
+	for p in all (state.players) do
+		if p.ready == false then
+			if btnp(0,p.id-1) then
+				p.callsign[1] -= 1
+			elseif btnp(1,p.id-1) then
+				p.callsign[1] += 1
+			elseif btnp(2,p.id-1) then
+				p.callsign[2] -= 1
+			elseif btnp(3,p.id-1) then
+				p.callsign[2] += 1
+			end
+			if p.callsign[1] < 1 then p.callsign[1] = 26 end
+			if p.callsign[2] < 1 then p.callsign[2] = 26 end
+			p.callsign[1] = max(1,p.callsign[1] % 27)
+			p.callsign[2] = max(1,p.callsign[2] % 27)
+			if btnp(4,p.id-1) then p.ready = true end
+		elseif p.ready and btnp(5,p.id-1) then p.ready = false end
+	end
+	return state
+end
 
 -- sector stuff below
 function initsectors(width,height)
@@ -1041,6 +1092,9 @@ function updateevents(state,events)
 				if i.object.hit.id == e.id then
 					e.hp -= 1
 					e.hit = {true, i.object.id}
+					for p in all(lstate.players) do
+						p.energy += 1 * (state.multiplier/10)
+					end
 				end
 			end
 		end
@@ -1219,25 +1273,138 @@ end
 --draw functions below
 function _draw()
 	cls()
+	if screen == "game" then
+		drawgame()
+	elseif screen == "title" then
+		drawtitle()
+	elseif screen == "highscores" then
+		drawhighscores()
+	elseif screen == "gameover" then
+	 	drawgameover()
+	end
+end
 
+function drawgame()
 	drawplayerviewport(state.players[2],0,61,-16)
 	drawplayerviewport(state.players[1],68,128,-112)
-	
 	clip()
 	camera(0,0)
-	
 	drawui()
+end
+
+function drawtitle()
+	local starcolors = {5,6,7}
+	for l = 1,#const.stars do
+		if #state.enemies < 10*(l+1) then
+			for s in all(const.stars[l]) do
+					pset((0 / l+5)*0.9+s[1]-128,(0 / l+5)*0.9+s[2]-128,starcolors[l])
+			end
+		end
+	end
+	if every(10,5,5) == false then palt(7,true) end
+	if every(16,0,5) == false then palt(11,true) end
+	if every(30,13,15) == false then palt(14,true) end
+	if every(8) then pal(7,8) end
+
+
+	camera(48-cos(state.time/24)*48,-20)
+	for x = 36,0,-1 do
+		for y = 0,4 do
+			local i = x * 7 - (state.time *60)
+			map(x,y,x*7,y*6-cos(i/128)*5,1,1)
+		end
+	end
+	camera(-10+sin(state.time/24)*10,-40)
+	for x = 36,0,-1 do
+		for y = 5,10 do
+			local i = x * 7 - (state.time *60)
+			map(x,y,x*7,y*6-sin(i/128)*5,1,1)
+		end
+	end
+
+	pal()
+end
+
+function drawhighscores()
+
+	local starcolors = {5,6,7}
+	for l = 1,#const.stars do
+		if #state.enemies < 10*(l+1) then
+			for s in all(const.stars[l]) do
+					pset((xoffset / l+5)*0.9+s[1]-128,(0 / l+5)*0.9+s[2]-128,starcolors[l])
+			end
+		end
+	end
+
+	if every(10,5,5) == false then pal(11,8) end
+	if every(30,0,10) == false then palt(11,true) end
+	if every(30,13,20) == false then palt(14,true) end
 	
-	camera(16+sin(state.time%1)*10,-84+cos(state.time%1)*10)
-	-- if every(10) == false then palt(7,true) end
-	-- if every(16) == false then palt(11,true) end
-	-- if every(30) == false then palt(14,true) end
-	-- if every(8) then pal(7,8) end
-	-- for x = 36,0,-1 do
-	-- 	for y = 0,10 do
-	-- 		map(x,y,x*4+4*y,y*3-3*x,1,1)
-	-- 	end
-	-- end
+
+	local mapoffset = 80 + xoffset - (xoffset*0.5)
+	for x = 36,0,-1 do
+		for y = 11,15 do
+			local i = x * 7 - (state.time *60)
+			map(x,y,mapoffset + x*7,-60+y*6-sin(i/128)*5,1,1)
+		end
+	end
+	
+
+	camera(-50+xoffset)
+	drawascore(0, 84,80,true)
+	print("ALL TIME",84*2.5,80-12,5)
+	for i = 1, #scores do
+		drawascore(i, (i+1.5)*84,80,true)
+	end
+	pal()
+end
+
+function drawascore(nr,x,y,new)
+	local clrs = {7,8,14,11}
+	new = new or false
+	local score = ""
+	if nr == 0 then 
+		score = sessionscore
+		print("SESSION",x,y-12,5)
+	else
+		score = scores[nr]
+	end
+	clr = 7
+	drawscore(score[1],x,y)
+	if every(16,0,8) and new then 
+			clr = clrs[1+flr(rnd(#clrs))] 
+			print("NEW",x,y-6,clr)
+	end
+	local number = nr.."."
+	drawmini(sub(number,1,2),x-10,y+5,7)
+
+	drawcallsign(score[2],x,y+10)
+	drawcallsign(score[3],x,y+16)
+	pal()
+end
+
+function drawgameover()
+	-- drawcallsign(state.players[1].callsign,20,30)
+	-- drawcallsign(state.players[2].callsign,20,70)
+end
+
+function drawcallsign(callsign,x,y)
+	local lcallsign = {}
+	for i = 1,2 do
+		local words = const.callsign[i]
+		local sub1 = 0
+		local sub2 = 0
+		for n = 1,#words do
+			if tonum(sub(words,n,n+1)) == callsign[i] then
+				sub1 = n
+			end 
+			if tonum(sub(words,n,n+1)) == callsign[i]+1 then
+				sub2 = n
+			end 
+		end
+		add(lcallsign, sub(words,sub1+2,sub2-1))
+	end
+	print(lcallsign[1] .. " " .. lcallsign[2],x,y,7)
 end
 
 function drawplayerviewport(p,y1,y2,yoffset)
@@ -1283,7 +1450,7 @@ function drawdeadplayer(p)
 				rect(p.x-4,p.y-7,p.x+4,p.y+7,clr)
 				rectfill(p.x-4,p.y+7,p.x+4,p.y+7-flr(p.energy*0.14),clr)
 				palt(15,true) palt(0,false) spr(3,p.x-3,p.y-8+yoffset,1,2,false,flipy) palt() 
-				drawmini(""..flr(p.energy),p.x+6,p.y+5,clr)
+				drawmini(""..flr(max(100-p.energy),0),p.x+6,p.y+5,clr)
 			end
 end
 
@@ -1344,7 +1511,7 @@ function drawplayer (p1,p2,y1,y2,yoffset)
 	elseif every(2) then
 		clr = 5
 		if p1.energy > 95 then clr = 11 end
-		drawmini(""..flr(p1.energy),p1.x+6,p1.y+4,clr)
+		drawmini(""..flr(max(100-p1.energy),0),p1.x+6,p1.y+4,clr)
 	end
 	palt(15,true)
 	palt(0,false)
@@ -1411,8 +1578,8 @@ function drawui()
 	drawmini(minutesseconds(state.time),101,63,5)
 	pal()
 	--debug
-	local percent = flr(stat(1)*100)
-	print(percent .. "%", 4 , 4 , stat(1)*10)
+	-- local percent = flr(stat(1)*100)
+	-- print(percent .. "%", 4 , 4 , stat(1)*10)
 end
 
 
@@ -1442,13 +1609,13 @@ __gfx__
 7000700707000070700070000000700700070070000700077000700707000700700070070000700707070000000000000000000000000000f7fffff7ffffffff
 7777777777777777777777777777777700777777777777777777777707777700777777777777777707770000000000000000000000000000f7fffff7ffffffff
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f7fffff7ffffffff
-0007700077777777777707777777777777777777777777777777077777777777777777777777777700000000000000000000000000000000ff7fff7fffffffff
-0777777070007000700707077070070770007007700707077007070707000070700070007000700700000000000000000000000000000000ff7fff7fffffffff
-7777777770007000700777077770077770007007700707077007770707000070700070007000700700000000000000000000000000000000f7fffff7ffffffff
-e777777b700007700770007000700700700077707007070770070707070000707000700070007007000000000000000000000000000000007fff7fff7fffffff
-eee77bbb700070007007770700700700700070077007770770070707070000707000700070007007000000000000000000000000000000007ff7f7ff7fffffff
-0eeebbb0700070007007070700700700700070077007070770070707070000707000700070007007000000000000000000000000000000007f7fff7f7fffffff
-000eb00077777777777707770077770077777007777707777777077777777777777777777777777700000000000000000000000000000000f7fffff7ffffffff
+eeeeee0077777777777707777777777777777777777777777777077777777777777777777777777777777777000000000000000000000000ff7fff7fffffffff
+ebbbbeb07000700070070707707007077000700770070707700707070700007070007000700070077ebbbbe7000000000000000000000000ff7fff7fffffffff
+eb777eb07000700070077707777007777000700770070707700777070700007070007000700070077bebbeb7000000000000000000000000f7fffff7ffffffff
+eb777eb07000077007700070007007007000777070070707700707070700007070007000700070077bbeebb70000000000000000000000007fff7fff7fffffff
+eeeeeeb07000700070077707007007007000700770077707700707070700007070007000700070077bebbeb70000000000000000000000007ff7f7ff7fffffff
+0bbbbbb07000700070070707007007007000700770070707700707070700007070007000700070077ebbbbe70000000000000000000000007f7fff7f7fffffff
+0000000077777777777707770077770077777007777707777777077777777777777777777777777777777777000000000000000000000000f7fffff7ffffffff
 77770000777000007770000077770000707700000777000070000000777700007777000077770000077000007007000000000000000000000000000000000000
 70070000077000000770000007770000777700000770000077770000077700007777000077770000000000000770000000000000000000000000000000000000
 77770000777700000777000077770000007700007770000077770000077700007777000000070000077000007007000007700000000000000000000000000000
@@ -1464,10 +1631,10 @@ __map__
 3000000030303000300030003030300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000000000000000000000000000000001b1b1b1b1b1b1b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000001b1b1b1b1b1b1b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000000000000000000001b1b1b1b1b1b1b1b1b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000001b1b1b001b1b1b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000001b1b1b001b1b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3000300030303000303030003030301b3030301b303000003030300030303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+300030000030000030000000301b1b1b301b301b301b30003030000030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3030300000300000003030003000001b301b301b303000003000000000303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3000300030303000303030003030301b3030301b300030003030300030303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000001b001b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
