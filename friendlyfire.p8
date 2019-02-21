@@ -17,10 +17,10 @@ __lua__
 
 --init and help functions below
 function _init()
-	screen = "highscores"
+	screen = "gameover"
 	music(1)
 	const = {
-		callsign = { "01ACID02BITTER03COLD04DEAD05ELECTRIC06FILTHY07GIANT08HOT09ILL10JANKY11KILL12LOST13MEDIOCRE14NASTY15OPTIC16PROUD17QUIRKY18RADICAL19SALTY20TOP21URBAN22VICIOUS23WOKE24XENIAL25YELLOW26ZESTY", "01ARROW02BANANA03CURE04DEATH05ENEMY06FOX07GIANT08HORROR09IDIOT10JUSTICE11KING12LOVE13MASS14NEEDLE15ORANGE16PILOT17QUEEN18RAVEN19SIREN20TERROR21UNCLE22VOICE23WARRIOR24XENO25YOUTH26ZODIAC",
+		callsign = { "01ACID02BITTER03COLD04DEAD05ELECTRIC06FILTHY07GIANT08HOT09ILL10JANKY11KILL12LOST13MEDIOCRE14NASTY15OPTIC16PROUD17QUIRKY18RADICAL19SALTY20TOP21URBAN22VICIOUS23WOKE24XENIAL25YELLOW26ZESTY", "01ARROW02BANANA03CURE04DEATH05ENEMY06FOX07GIANT08HORROR09IDIOT10JUSTICE11KING12LOVE13MASS14NEEDLE15ORANGE16PILOT17QUEEN18RAVEN19SIREN20TERROR21UNCLE22VOICE23WARRIOR24XENO25YOUTH26ZODIAC"
 		},
 		music = {0,4,8},
 		bounds = {
@@ -34,76 +34,30 @@ function _init()
 			x1 = 100, x2 = 500, y1 = 100, y2 = 550
 		},
 		vector = {
-			up = {0,-1},
-			down = {0,1},
-			left = {-1,0},
-			right = {1,0}
+			vec(0,-1), vec(0,1), vec(-1,0), vec(1,0)
 		},
 		stars = initstars(64,3)
 	}
 	const = protect(const)
 
 	state = initgame()
-	sessionscore = {2468,{10,21},{2,5}}
+	sessionscore = {0,{0,0},{0,0}}
 	cartdata(1)
 	scores = getscores()
-	scores = getscores({334,{18,17},{3,5}})
-	scores = isnewscore(scores,state)
 	xoffset = 0
 	printh("init")
 end
 
 function initgame()
 	local state = {
-		score = 23456,
+		score = 0,
+		timebonus = 0,
 		multiplier = 10,
 		lastpoints = 0,
 		lives = 3,
 		players = {
-			{ id = 1,
-				type = "player", 
-				x = const.bounds[1].x+100, 
-				y = const.bounds[1].y+50, 
-				rad = 3, 
-				vx = 0, 
-				vy = 0,
-				cam = {
-					x = const.bounds[1].x+100, 
-					y = const.bounds[1].y+50, 
-				},
-				shield = false,
-				energy = 0, 
-				shieldrad = 8, 
-				projdir = const.vector.up, 
-				cooldown = -1, 
-				rateoffire = {0,0.3},
-				death = false,
-				invulnerable = 0,
-				callsign = {5,18},
-				ready = false
-			},
-			{ id = 2, 
-				type = "player",
-				x = const.bounds[2].x+100, 
-				y = const.bounds[2].y+50,  
-				rad = 3, 
-				vx = 0, 
-				vy = 0, 
-				cam = {
-					x = const.bounds[2].x+100, 
-					y = const.bounds[2].y+50, 
-				},
-				shield = false,
-				energy = 0,
-				shieldrad = 8, 
-				projdir = const.vector.down, 
-				cooldown = -1, 
-				rateoffire = {0,0.2},
-				death = false,
-				invulnerable = 0,
-				callsign = {26,19},
-				ready = false
-			}
+			initplayer(1),
+			initplayer(2)
 		},
 		enemies = {},
 		projectiles = {},
@@ -114,6 +68,31 @@ function initgame()
 	return state
 end
 
+function initplayer(nr)
+ local player = { 
+	 			id = nr,
+				type = "player", 
+				x = const.bounds[nr].x+100, 
+				y = const.bounds[nr].y+50, 
+				rad = 3, 
+				vx = 0, 
+				vy = 0, 
+				energy = 0, 
+				invulnerable = 0, 
+				cam = {
+					x = const.bounds[nr].x+100, y = const.bounds[nr].y+50 
+				},
+				shield = false, 
+				death = false, 
+				ready = false, 
+				shieldrad = 8, 
+				projdir = const.vector[nr], 
+				cooldown = -1, 
+				rateoffire = {0,0.3},
+				callsign = {nr,nr}
+			}
+	return player
+end
 function initstars(a,layer)
 	local stars = {}
 	for i = 1,layer do
@@ -124,6 +103,10 @@ function initstars(a,layer)
 		stars[i] = l
 	end
 	return stars
+end
+
+function vec(x,y)
+	return {x=x,y=y} 
 end
 
 function pythagorish(ax,ay,bx,by)
@@ -137,8 +120,8 @@ function pythagorish(ax,ay,bx,by)
 end
 
 function vectornormalized(vector)
-	local factor = 1/(abs(vector[1])+abs(vector[2]))
-	return {mid(-1,vector[1]*factor,1),mid(-1,vector[2]*factor,1)}
+	local factor = 1/(abs(vector.x)+abs(vector.y))
+	return vec(mid(-1,vector.x*factor,1),mid(-1,vector.y*factor,1))
 end
 
 function sloppysqrt(x)
@@ -230,7 +213,7 @@ function wavesystem(state)
 	 		local enemy = enemies[1+flr(rnd(2))]
 			add(things,spawnenemy(origin,enemy,state))
 		elseif difficulty < 5 then
-			things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,const.vector.right,things)
+			things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,const.vector[4],things)
 		elseif difficulty < 6 then
 			add(things,spawnenemy(origin,"alien",state))
 			add(things,spawnenemy(origin,"alien",state))
@@ -268,9 +251,40 @@ function _update60()
 	end
 end
 
+function updatetitle()
+	state.time += 1/60
+	for p in all(state.players) do
+		if btnp(4,p.id-1) then 
+			p.ready = true
+		elseif p.ready and btnp(5,p.id-1) then 
+			p.ready = false 
+		end
+	end
+	if state.players[1].ready and state.players[2].ready then
+		screen = "game"
+		state = initgame()
+	end
+end
+
 
 function updategameover()
-	
+	state.time += 1/60
+	state = updatecallsigns(state)
+	if state.players[1].ready and state.players[2].ready 	then
+		state.score += state.timebonus * 10
+		state.timebonus = 0
+	end
+	if state.timebonus > 0 then
+		state.score += 5
+		state.timebonus -= 0.5
+	end
+	if state.players[1].ready and state.players[2].ready and btnp() then
+		screen = "highscores"
+		state.players[1].ready = false
+		state.players[2].ready = false
+		scores = isnewscore(scores,state)
+		setscores()
+	end
 end
 
 function sort(a,cmp)
@@ -313,27 +327,25 @@ function getscores(newscore)
 end
 
 function setscores()
-	for s = 1,50,5 do
-		local nr = min(1,flr(s/5))
-		local score = scores[nr][1]
-		local callsign1 = scores[nr][2]
-		local callsign2 = scores[nr][3]
-		dset(s,score)
-		dset(s+1,callsign1[1])
-		dset(s+2,callsign1[2])
-		dset(s+3,callsign2[1])
-		dset(s+4,callsign2[2])
+	for i = 1,#scores do
+		local nr = (i*5)-4
+		local score = scores[i][1]
+		local callsign1 = scores[i][2]
+		local callsign2 = scores[i][3]
+		dset(nr,score)
+		dset(nr+1,callsign1[1])
+		dset(nr+2,callsign1[2])
+		dset(nr+3,callsign2[1])
+		dset(nr+4,callsign2[2])
 	end
 end
 
 function isnewscore(scores,state)
 	lscores = scores
-	printh(state.score)
 	for s in all(scores) do
 		if state.score > s[1] then
-			printh("new score!")
 			lscores = getscores({
-				state.score,
+				flr(state.score),
 				state.players[1].callsign,
 				state.players[2].callsign,
 				true
@@ -343,25 +355,23 @@ function isnewscore(scores,state)
 	end
 	if state.score > sessionscore[1] then 
 		sessionscore = {
-			state.score,
+			flr(state.score),
 			state.players[1].callsign,
 			state.players[2].callsign,
 			true
 		}
 	else sessionscore[4] = false end
+
 	return lscores
 end
 
 
 function updatehighscores()
-	state.time += 1/60
 	xoffset += 0.5
 	xoffset = xoffset % (1000)
+	updatetitle()
 end
 
-function updatetitle()
-	state.time += 1/60
-end
 
 function  updategame()
 	if every(44*60) then music(const.music[1+flr(rnd(#const.music))]) end
@@ -383,6 +393,12 @@ function  updategame()
 	lstate.time += 1/60
 	lstate = updatecallsigns(lstate)
 	state = lstate
+	if state.players[1].death and state.players[2].death then
+		screen = "gameover"
+		state.players[1].ready = false
+		state.players[2].ready = false
+		state.timebonus = flr(state.time)
+	end
 end
 
 function updatecallsigns(state)
@@ -423,13 +439,13 @@ function updatesectors(sectors, entities)
 	for i in all(entities) do
 		if i.death ~= true then
 			local sector = isinsector(i.x,i.y)
-			if sectors[sector[1]] == nil then
-				sectors[sector[2]] = {}
+			if sectors[sector.x] == nil then
+				sectors[sector.y] = {}
 			end
-			if sectors[sector[1]][sector[2]] == nil then
-				sectors[sector[1]][sector[2]] = {}
+			if sectors[sector.x][sector.y] == nil then
+				sectors[sector.x][sector.y] = {}
 			end
-			add(sectors[sector[1]][sector[2]],i)
+			add(sectors[sector.x][sector.y],i)
 		end
 	end
 	return sectors
@@ -438,15 +454,15 @@ end
 function isinsector(x,y)
 	local lx = mid(flr(x/25),-20,20)
 	local ly = mid(flr(y/25),-20,20)
-	return {lx,ly}
+	return vec(lx,ly)
 end
 
 function myneighbours(ex,ey,sectors)
 	local vector = isinsector(ex,ey)
 	local entities = {}
-	for x = vector[1]-1,vector[1]+1 do
+	for x = vector.x-1,vector.x+1 do
 		if x > 0 and x < 21 then
-			for y = vector[2]-1,vector[2]+1 do
+			for y = vector.y-1,vector.y+1 do
 				if y > 0 and y < 21 then
 					for i in all(sectors[x][y]) do
 						add(entities,i)
@@ -704,8 +720,8 @@ function spawnprojectile(p,gfx,color,rad,vel)
 		death = false, 
 		gfx = gfx
 	}
-	proj.x += proj.vector[1] * 8
-	proj.y += proj.vector[2] * 8
+	proj.x += proj.vector.x * 8
+	proj.y += proj.vector.y * 8
 	return proj
 end
 
@@ -713,8 +729,8 @@ function updateprojectiles(projs, sectors)
 	local lprojs = {}
 	if #projs > 0 then
 		lprojs = funmap(projs, function(lproj)
-			lproj.x += lproj.vector[1] * lproj.velocity
-			lproj.y += lproj.vector[2] * lproj.velocity
+			lproj.x += lproj.vector.x * lproj.velocity
+			lproj.y += lproj.vector.y * lproj.velocity
 			return lproj
 		end)
 		lprojs = filter(lprojs, function (i)
@@ -728,6 +744,7 @@ function updateprojectiles(projs, sectors)
 end
 
 function outofbounds(object,limits)
+	printh(limits.x1)
 	return (object.x > limits.x2) or (object.x < limits.x1) or (object.y > limits.y2) or (object.y < limits.y1) 
 end
 
@@ -746,24 +763,24 @@ function spawnenemy(pos,type,state)
 			x = pos[1], 
 			y =  pos[2],
 			rad = 8,   
-			vector = {1,0},
+			vector = vec(1,0),
 			velocity = 0.1,
 			movement = function(enemy, state, events)	
 					if enemy.hit[1] then 
 						enemy.velocity += 0.05 
 						if enemy.hit[2] == 1 then
-							enemy.vector[2] -= 0.05
+							enemy.vector.x -= 0.05
 						else
-							enemy.vector[2] += 0.05
+							enemy.vector.y += 0.05
 						end
-						enemy.vector[2] = mid(enemy.vector[2],-1,1)
+						enemy.vector.y = mid(enemy.vector.y,-1,1)
 					end
 					local lbounds = const.combinedbounds
 			
-					if enemy.x > (lbounds.x2) then enemy.vector[1] -= 0.03 end
-					if enemy.x < (lbounds.x1) then enemy.vector[1] += 0.03 end
-					if enemy.y > (lbounds.y2) then enemy.vector[2] -= 0.03 end
-					if enemy.y < (lbounds.y1) then enemy.vector[2] += 0.03 end
+					if enemy.x > (lbounds.x2) then enemy.vector.x -= 0.03 end
+					if enemy.x < (lbounds.x1) then enemy.vector.x += 0.03 end
+					if enemy.y > (lbounds.y2) then enemy.vector.y -= 0.03 end
+					if enemy.y < (lbounds.y1) then enemy.vector.y += 0.03 end
 			end,
 			gfx = function(enemy, time)
 				palt(15,true)
@@ -787,20 +804,19 @@ function spawnenemy(pos,type,state)
 			x = pos[1], 
 			y =  pos[2],
 			rad = 6,   
-			vector = {0,0},
-			projdir = {1,0},
+			vector = vec(0,0),
+			projdir = vec(1,0),
 			velocity = 0.3,
 			movement = function(enemy, state, events)	
 				local time = state.time
-				if every(120) or enemy.vector == {0,0} then
-					local vlist = {const.vector.up,const.vector.left,const.vector.down,const.vector.right}
-					enemy.vector = vlist[1+flr(rnd(4))]
-					enemy.projdir = {-enemy.vector[1],-enemy.vector[2]}
+				if every(120) or enemy.vector.x == 0 and enemy.vector.y == 0 then
+					enemy.vector = const.vector[1+flr(rnd(4))]
+					enemy.projdir = vec(-enemy.vector.x,-enemy.vector.y)
 				end
 				if outofbounds(enemy,const.combinedbounds) then
-					enemy.vector = {-enemy.vector[1],-enemy.vector[2]}
+					enemy.vector = vec(-enemy.vector.x,-enemy.vector.y)
 				end
-				if every(180) and enemy.projdir ~= {0,0} then
+				if every(180) and enemy.projdir.x ~= 0 and enemy.projdir.y ~= 0 then
 					local rectgfx = function (proj)
 						local colors = {14,7,11,8}
 						fillp(flr(rnd(9999)))
@@ -834,17 +850,14 @@ function spawnenemy(pos,type,state)
 			x = pos[1], 
 			y =  pos[2],
 			rad = 6,   
-			vector = {0,0},
-			projdir = {0,0},
+			vector = vec(0,0),
+			projdir = vec(0,0),
 			velocity = 0.3,
 			movement = function(enemy, state, events)
 				local time = state.time
 				local closestplayer = getclosestplayer(enemy.x,enemy.y)
 				local directionofplayer = vectornormalized(vectora2b(enemy,closestplayer))
-				enemy.vector = {
-					lerp(enemy.vector[1],directionofplayer[1],0.01),
-					lerp(enemy.vector[2],directionofplayer[2],0.01),
-				}
+				enemy.vector = vec(lerp(enemy.vector.x,directionofplayer.x,0.01),lerp(enemy.vector.y,directionofplayer.y,0.01))
 				if every(160,(enemy.id%160)) and stat(1) < 0.9 then
 					enemy.projdir = directionofplayer
 					local projgfx = function(proj) 
@@ -856,7 +869,6 @@ function spawnenemy(pos,type,state)
 					add(events,{type = "projectile", object = lproj}) 
 					sfx(20)
 				end
-	--			enemy.vector = {sin(time%1),sin(time%1)}
 			end,
 			gfx = function(enemy, time)
 				palt(0,false)
@@ -873,7 +885,6 @@ function spawnenemy(pos,type,state)
 end
 
 function generatesnake(size,origin,direction,enemies)
- 	local vlist = {const.vector.up,const.vector.left,const.vector.down,const.vector.right}
   local generatedsize = 1
 	local construct = {}
  
@@ -887,7 +898,7 @@ function generatesnake(size,origin,direction,enemies)
 		x = origin[1],
 		y = origin[2],
 		velocity = 1,
-		vector = {0,0},
+		vector = vec(0,0),
 		hp = 2,
 		hit = {false, nil},
 		rad = 3,
@@ -896,10 +907,10 @@ function generatesnake(size,origin,direction,enemies)
 				local target = getclosestplayer(enemy.x,enemy.y)
 				enemy.velocity += 0.01
 				local directionoftarget = vectornormalized(vectora2b(enemy,target))
-				enemy.vector = {
-					lerp(enemy.vector[1],directionoftarget[1],0.01),
-					lerp(enemy.vector[2],directionoftarget[2],0.01),
-				}
+				enemy.vector = vec(
+					lerp(enemy.vector.x,directionoftarget.x,0.01),
+					lerp(enemy.vector.y,directionoftarget.y,0.01)
+				)
 			end
 		end,
 		gfx = function(i)
@@ -926,8 +937,8 @@ function generatesnake(size,origin,direction,enemies)
 			subtype = "snakeslave",
 			id = master.id + generatedsize,
 			snakeid = generatedsize,
-			x = master.x - direction[1]*generatedsize*8,
-			y = master.y - direction[2]*generatedsize*8,
+			x = master.x - direction.x*generatedsize*8,
+			y = master.y - direction.y*generatedsize*8,
 			velocity = 1,
 			hit = {false, nil},
 			vector = master.vector,
@@ -948,22 +959,22 @@ function generatesnake(size,origin,direction,enemies)
 							enemy.velocity += 0.01
 							local target = getclosestplayer(enemy.x,enemy.y)
 							local directionoftarget = vectornormalized(vectora2b(enemy,target))
-							enemy.vector = {
-								lerp(enemy.vector[1],directionoftarget[1],0.01),
-								lerp(enemy.vector[2],directionoftarget[2],0.01),
-							}
+							enemy.vector = vec(
+								lerp(enemy.vector.x,directionoftarget.x,0.01),
+								lerp(enemy.vector.y,directionoftarget.y,0.01)
+							)
 						end
 					end
 				else
 					enemy.velocity = target.velocity
 					if collisioncheck(enemy.x,enemy.y,target.x,target.y,enemy.rad*2,target.rad) then
-						enemy.vector = {0,0}
+						enemy.vector = vec(0,0)
 					else
 						local directionoftarget = vectornormalized(vectora2b(enemy,target))
-						enemy.vector = {
-							lerp(enemy.vector[1],directionoftarget[1],0.1),
-							lerp(enemy.vector[2],directionoftarget[2],0.1),
-						}
+						enemy.vector = vec(
+							lerp(enemy.vector.x,directionoftarget.x,0.1),
+							lerp(enemy.vector.y,directionoftarget.y,0.1)
+						)
 					end
 				end
 			end,
@@ -980,7 +991,6 @@ function generatesnake(size,origin,direction,enemies)
   return enemies
 end
 function generatespacetrash(size,origin,enemies)
-  local vlist = {const.vector.up,const.vector.left,const.vector.down,const.vector.right}
   local generatedsize = 1
   local master = {
     sprite = 20+flr(rnd(4)),
@@ -993,7 +1003,7 @@ function generatespacetrash(size,origin,enemies)
     x = origin[1],
 		y = origin[2],
 		velocity = 0.1,
-    vector = const.vector.down,
+    vector = const.vector[2],
     hp = 2,
 		hit = {false, nil},
     rad = 3,
@@ -1077,7 +1087,7 @@ end
 
 
 function vectora2b(entitya,entityb)
-	return {(entityb.x-entitya.x),(entityb.y-entitya.y)}
+	return vec((entityb.x-entitya.x),(entityb.y-entitya.y))
 end
 
 function updateenemies(e, state, events, sectors)
@@ -1085,8 +1095,8 @@ function updateenemies(e, state, events, sectors)
 	local les = {}
 	les = filter(e, function(le)
 	
-		le.x += le.vector[1] * le.velocity
-		le.y += le.vector[2] * le.velocity
+		le.x += le.vector.x * le.velocity
+		le.y += le.vector.y * le.velocity
 		
 		le.movement(le,state,events)
 		le.hit = {false, nil}
@@ -1379,6 +1389,8 @@ function drawtitle()
 			end
 		end
 	end
+
+	
 	if every(10,5,5) == false then palt(7,true) end
 	if every(16,0,5) == false then palt(11,true) end
 	if every(30,13,15) == false then palt(14,true) end
@@ -1399,7 +1411,9 @@ function drawtitle()
 			map(x,y,x*7,y*6-sin(i/128)*5,1,1)
 		end
 	end
-
+	camera()
+	if state.players[1].ready then print("PLAYER1 READY",40,16) end	
+	if state.players[2].ready then print("PLAYER2 READY",40,100) end
 	pal()
 end
 
@@ -1414,25 +1428,24 @@ function drawhighscores()
 		end
 	end
 
-	if every(10,5,5) == false then pal(11,8) end
-	if every(30,0,10) == false then palt(11,true) end
-	if every(30,13,20) == false then palt(14,true) end
+	-- if every(10,5,5) == false then pal(11,8) end
+	-- if every(30,0,10) == false then palt(11,true) end
+	-- if every(30,13,20) == false then palt(14,true) end
 	
 
 	local mapoffset = 80 + xoffset - (xoffset*0.5)
 	for x = 36,0,-1 do
 		for y = 11,15 do
 			local i = x * 7 - (state.time *60)
-			map(x,y,mapoffset + x*7,-60+y*6-sin(i/128)*5,1,1)
+			map(x,y,mapoffset + x*7,-50+y*6-sin(i/128)*5,1,1)
 		end
 	end
 	
-
 	camera(-50+xoffset)
-	drawascore(0, 84,80)
-	print("ALL TIME",84*2.5,80-12,5)
+	drawascore(0, 84,70)
+	print("all time",84*2.5,70-12,5)
 	for i = 1, #scores do
-		drawascore(i, (i+1.5)*84,80)
+		drawascore(i, (i+1.5)*84,70)
 	end
 	pal()
 end
@@ -1443,7 +1456,7 @@ function drawascore(nr,x,y)
 	local score = ""
 	if nr == 0 then 
 		score = sessionscore
-		print("SESSION",x,y-12,5)
+		print("session",x,y-12,5)
 	else
 		score = scores[nr]
 		new = scores[nr][4]
@@ -1452,7 +1465,7 @@ function drawascore(nr,x,y)
 	drawscore(""..score[1],x,y)
 	if every(16,0,8) and new then 
 			clr = clrs[1+flr(rnd(#clrs))] 
-			print("NEW",x,y-6,clr)
+			print("new",x,y-6,clr)
 	end
 	local number = nr.."."
 	drawmini(sub(number,1,2),x-10,y+5,7)
@@ -1463,11 +1476,34 @@ function drawascore(nr,x,y)
 end
 
 function drawgameover()
-	drawcallsign(state.players[1].callsign,20,30)
-	drawcallsign(state.players[2].callsign,20,70)
+	drawplayerviewport(state.players[2],0,61,-16)
+	drawplayerviewport(state.players[1],68,128,-112)
+	clip()
+	camera()
+	rect(-1,61,128,67,5)
+	
+	local scorestring = "" .. flr(state.score)
+	drawscore(scorestring, 4,60)
+	drawmini("+" .. flr(state.timebonus),4+(#scorestring*10),63,14)
+	drawmini(minutesseconds(state.timebonus),101,63,7)
+	local clr1, clr2 = 7
+	if state.players[1].ready then clr1 = 11 end
+	if state.players[2].ready then clr2 = 11 end
+	drawcallsign(state.players[2].callsign,4,50,clr2)
+	drawcallsign(state.players[1].callsign,4,74,clr1)
+	
+	for x = 36,0,-1 do
+		for y = 16,20 do
+			local i = x * 7 - (state.time *60)
+			if every(24,-x,8) == false then pal(7,0) pal(14,7) pal(11,5) end
+			map(x,y,12+ x*7,-80+y*6-sin(i/128)*5,1,1)
+			map(x,y+4,12+ x*7,-12+y*6-cos(i/128)*5,1,1)
+			pal()
+		end
+	end
 end
 
-function drawcallsign(callsign,x,y)
+function drawcallsign(callsign,x,y,clr)
 	local lcallsign = {}
 	for i = 1,2 do
 		local words = const.callsign[i]
@@ -1483,7 +1519,8 @@ function drawcallsign(callsign,x,y)
 		end
 		add(lcallsign, sub(words,sub1+2,sub2-1))
 	end
-	print(lcallsign[1] .. " " .. lcallsign[2],x,y,7)
+	clr = clr or 7
+	print(lcallsign[1] .. " " .. lcallsign[2],x,y,clr)
 end
 
 function drawplayerviewport(p,y1,y2,yoffset)
@@ -1516,21 +1553,21 @@ function drawplayerviewport(p,y1,y2,yoffset)
 end
 
 function drawdeadplayer(p)
-			flipy = nil
-			yoffset = 0
-			if p.id == 2 then flipy = true yoffset = 1 end
-			if every(2) then 
-				clr = 5
-				if p.energy > 95 and every(4) then clr = 7 end
-				line(p.x-4,p.y,p.x-6,p.y,clr)
-				line(p.x+4,p.y,p.x+6,p.y,clr)
-				line(p.x,p.y+7,p.x,p.y+9,clr)
-				line(p.x,p.y-7,p.x,p.y-9,clr)
-				rect(p.x-4,p.y-7,p.x+4,p.y+7,clr)
-				rectfill(p.x-4,p.y+7,p.x+4,p.y+7-flr(p.energy*0.14),clr)
-				palt(15,true) palt(0,false) spr(3,p.x-3,p.y-8+yoffset,1,2,false,flipy) palt() 
-				drawmini(""..flr(max(100-p.energy),0),p.x+6,p.y+5,clr)
-			end
+			-- flipy = nil
+			-- yoffset = 0
+			-- if p.id == 2 then flipy = true yoffset = 1 end
+			-- if every(2) then 
+			-- 	clr = 5
+			-- 	if p.energy > 95 and every(4) then clr = 7 end
+			-- 	line(p.x-4,p.y,p.x-6,p.y,clr)
+			-- 	line(p.x+4,p.y,p.x+6,p.y,clr)
+			-- 	line(p.x,p.y+7,p.x,p.y+9,clr)
+			-- 	line(p.x,p.y-7,p.x,p.y-9,clr)
+			-- 	rect(p.x-4,p.y-7,p.x+4,p.y+7,clr)
+			-- 	rectfill(p.x-4,p.y+7,p.x+4,p.y+7-flr(p.energy*0.14),clr)
+			-- 	palt(15,true) palt(0,false) spr(3,p.x-3,p.y-8+yoffset,1,2,false,flipy) palt() 
+			-- 	drawmini(""..flr(max(100-p.energy),0),p.x+6,p.y+5,clr)
+			-- end
 end
 
 function drawstars(p)
@@ -1637,6 +1674,8 @@ pal(7,clr)
 			spr(74,((n-1)*5)+x,y)
 		elseif nr == "0x" then
 			spr(75,((n-1)*5)+x,y)
+		elseif nr == "0+" then
+			spr(77,((n-1)*5)+x,y)
 		elseif nr == "0." then
 			spr(76,((n-1)*5)+x,y)
 		else
@@ -1695,9 +1734,9 @@ eb777eb0700007700770007000700700700077707007070770070707070000707000700070007007
 eeeeeeb07000700070077707007007007000700770077707700707070700007070007000700070077bebbeb70000000000000000000000007ff7f7ff7fffffff
 0bbbbbb07000700070070707007007007000700770070707700707070700007070007000700070077ebbbbe70000000000000000000000007f7fff7f7fffffff
 0000000077777777777707770077770077777007777707777777077777777777777777777777777777777777000000000000000000000000f7fffff7ffffffff
-77770000777000007770000077770000707700000777000070000000777700007777000077770000077000007007000000000000000000000000000000000000
-70070000077000000770000007770000777700000770000077770000077700007777000077770000000000000770000000000000000000000000000000000000
-77770000777700000777000077770000007700007770000077770000077700007777000000070000077000007007000007700000000000000000000000000000
+77770000777000007770000077770000707700000777000070000000777700007777000077770000077000007007000000000000007000000700000000000000
+70070000077000000770000007770000777700000770000077770000077700007777000077770000000000000770000000000000077700007000000000000000
+77770000777700000777000077770000007700007770000077770000077700007777000000070000077000007007000007700000007000000700000000000000
 __map__
 3030300030300000303030003030300030303000303000003000000030003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 3000000030003000003000003030000030003000300030003000000030003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -1715,17 +1754,15 @@ __map__
 3030300000300000003030003000001b301b301b303000003000000000303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 3000300030303000303030003030301b3030301b300030003030300030303000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000001b001b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3030300030303000303030003030300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3000000030003000303030003030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3000300030303000303030003000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3030300030003000300030003030300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0031003200330034003500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0036003700250038003900340031000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3030300030003000303030003030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3000300030003000303000003000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3000300030003000300000003030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+3030300000300000303030003000300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 010e00200725507255072510725507255072550725507255072550725507255072550725507255072550725507255072550725507255072551125511255112550725507255072550725511255112551125511251
 010e00000a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2550a2551125511255112550a2550a2550a2550a25511255112551125511251
