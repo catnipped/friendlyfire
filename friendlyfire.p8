@@ -10,37 +10,32 @@ __lua__
 -- 	heavier bounding on enemy
 --  menu/highscore 
 --	help screen
---  game over screen
---	time bonus
---  get set cartridge data
 
 
 --init and help functions below
 function _init()
 	screen = "gameover"
 	music(1)
-	const = {
-		callsign = { "01ACID02BITTER03COLD04DEAD05ELECTRIC06FILTHY07GIANT08HOT09ILL10JANKY11KILL12LOST13MEDIOCRE14NASTY15OPTIC16PROUD17QUIRKY18RADICAL19SALTY20TOP21URBAN22VICIOUS23WOKE24XENIAL25YELLOW26ZESTY", "01ARROW02BANANA03CURE04DEATH05ENEMY06FOX07GIANT08HORROR09IDIOT10JUSTICE11KING12LOVE13MASS14NEEDLE15ORANGE16PILOT17QUEEN18RAVEN19SIREN20TERROR21UNCLE22VOICE23WARRIOR24XENO25YOUTH26ZODIAC"
-		},
-		music = {0,4,8},
-		bounds = {
+	
+	callsign = { "01ACID02BITTER03COLD04DEAD05ELECTRIC06FILTHY07GIANT08HOT09ILL10JANKY11KILL12LOST13MEDIOCRE14NASTY15OPTIC16PROUD17QUIRKY18RADICAL19SALTY20TOP21URBAN22VICIOUS23WOKE24XENIAL25YELLOW26ZESTY", "01ARROW02BANANA03CURE04DEATH05ENEMY06FOX07GIANT08HORROR09IDIOT10JUSTICE11KING12LOVE13MASS14NEEDLE15ORANGE16PILOT17QUEEN18RAVEN19SIREN20TERROR21UNCLE22VOICE23WARRIOR24XENO25YOUTH26ZODIAC"
+	}
+	musics = {0,4,8}
+	bounds = {
 			{x = 200, y = 350, w = 200, h = 100},
 			{x = 200, y = 200, w = 200, h = 100},
-		},
-		combinedbounds = {
+		}
+	combinedbounds = {
 				x1 = 200, x2 = 400,  y1 = 200, y2 = 450
-		},
-		limits = {
+		}
+	limits = {
 			x1 = 100, x2 = 500, y1 = 100, y2 = 550
-		},
-		vector = {
+		}
+	vector = {
 			vec(0,-1), vec(0,1), vec(-1,0), vec(1,0)
-		},
-		stars = initstars(64,3)
-	}
-	const = protect(const)
+		}
+	stars = initstars(64,3)
 
-	state = initgame()
+	initgame()
 	sessionscore = {0,{0,0},{0,0}}
 	cartdata(1)
 	scores = getscores()
@@ -49,44 +44,41 @@ function _init()
 end
 
 function initgame()
-	local state = {
-		score = 0,
-		timebonus = 0,
-		multiplier = 10,
-		lastpoints = 0,
-		lives = 3,
-		players = {
+	score = 0
+	timebonus = 0
+	multiplier = 10
+	lastpoints = 0
+	lives = 3
+	enemies = {}
+	projectiles = {}
+	animations = {}
+	time = 0
+	difficulty = 1
+	players = {
 			initplayer(1),
 			initplayer(2)
-		},
-		enemies = {},
-		projectiles = {},
-		animations = {},
-		time = 0,
-		difficulty = 1
-	}
-	return state
+	}	
 end
 
 function initplayer(nr)
  local player = { 
 	 			id = nr,
 				type = "player", 
-				x = const.bounds[nr].x+100, 
-				y = const.bounds[nr].y+50, 
+				x = bounds[nr].x+100, 
+				y = bounds[nr].y+50, 
 				rad = 3, 
 				vx = 0, 
 				vy = 0, 
 				energy = 0, 
 				invulnerable = 0, 
 				cam = {
-					x = const.bounds[nr].x+100, y = const.bounds[nr].y+50 
+					x = bounds[nr].x+100, y = bounds[nr].y+50 
 				},
 				shield = false, 
 				death = false, 
 				ready = false, 
 				shieldrad = 8, 
-				projdir = const.vector[nr], 
+				projdir = vector[nr], 
 				cooldown = -1, 
 				rateoffire = {0,0.3},
 				callsign = {nr,nr}
@@ -133,7 +125,7 @@ function sloppysqrt(x)
 end
 
 function every(duration,offset,period)
-	local frames = flr(state.time * 60)
+	local frames = flr(time * 60)
   local offset = offset or 0
   local period = period or 1
   local offset_frames = frames + offset
@@ -190,51 +182,46 @@ function lerp(a,b,t)
 	return c
 end
 
-function wavesystem(state)
-	local enemies = {"alien","robot","orb"}
-	local state = state
-	local time = state.time
+function wavesystem()
+	local enemiesdb = {"alien","robot","orb"}
 	local spawn = false
 	if every(60*15,14) then
-		state.difficulty += 1
+		difficulty += 1
 	end
-	local difficulty = state.difficulty
 	local things = {}
 
-	if #state.enemies == 0 then
-		state.difficulty += 1
+	if #enemies == 0 then
+		difficulty += 1
 		spawn = true
 	end
-	while (every(60*(mid(2,difficulty,15))) or spawn) and #state.enemies+#things < 0+mid(5,difficulty,30) and stat(1) < 0.9 do
-	 	local origin = {const.bounds[2].x + rnd(200),const.bounds[2].y + rnd(200)}
+	while (every(60*(mid(2,difficulty,15))) or spawn) and #enemies+#things < 0+mid(5,difficulty,30) and stat(1) < 0.9 do
+	 	local origin = {bounds[2].x + rnd(200),bounds[2].y + rnd(200)}
 		 if difficulty < 2 then
-	 		add(things,spawnenemy(origin,"robot",state))
+	 		add(things,spawnenemy(origin,"robot"))
 	 	elseif difficulty < 4 then
-	 		local enemy = enemies[1+flr(rnd(2))]
-			add(things,spawnenemy(origin,enemy,state))
+	 		local enemy = enemiesdb[1+flr(rnd(2))]
+			add(things,spawnenemy(origin,enemy))
 		elseif difficulty < 5 then
-			things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,const.vector[4],things)
+			things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,vector[4],things)
 		elseif difficulty < 6 then
-			add(things,spawnenemy(origin,"alien",state))
-			add(things,spawnenemy(origin,"alien",state))
+			add(things,spawnenemy(origin,"alien"))
+			add(things,spawnenemy(origin,"alien"))
 			things = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,things)
 		elseif difficulty < 9 then
-			add(things,spawnenemy(origin,"robot",state))
-			add(things,spawnenemy(origin,"orb",state))
+			add(things,spawnenemy(origin,"robot"))
+			add(things,spawnenemy(origin,"orb"))
 		elseif difficulty < 10 then
-			
 			things = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,things)
 		else
-			local enemy = enemies[1+flr(rnd(#enemies))]
-			add(things,spawnenemy(origin,enemy,state))
+			local enemy = enemiesdb[1+flr(rnd(#enemies))]
+			add(things,spawnenemy(origin,enemy))
 		end
-		if #state.enemies+#things > mid(5,difficulty,20) then
+		if #enemies+#things > mid(5,difficulty,20) then
 		end
 	end
 	for thing in all(things) do
-		add(state.enemies,thing)
+		add(enemies,thing)
 	end
-	return state
 end
 
 -->8
@@ -252,37 +239,37 @@ function _update60()
 end
 
 function updatetitle()
-	state.time += 1/60
-	for p in all(state.players) do
+	time += 1/60
+	for p in all(players) do
 		if btnp(4,p.id-1) then 
 			p.ready = true
 		elseif p.ready and btnp(5,p.id-1) then 
 			p.ready = false 
 		end
 	end
-	if state.players[1].ready and state.players[2].ready then
+	if players[1].ready and players[2].ready then
 		screen = "game"
-		state = initgame()
+		initgame()
 	end
 end
 
 
 function updategameover()
-	state.time += 1/60
-	state = updatecallsigns(state)
-	if state.players[1].ready and state.players[2].ready 	then
-		state.score += state.timebonus * 10
-		state.timebonus = 0
+	time += 1/60
+	updatecallsigns()
+	if players[1].ready and players[2].ready 	then
+		score += timebonus * 10
+		timebonus = 0
 	end
-	if state.timebonus > 0 then
-		state.score += 5
-		state.timebonus -= 0.5
+	if timebonus > 0 then
+		score += 5
+		timebonus -= 0.5
 	end
-	if state.players[1].ready and state.players[2].ready and btnp() then
+	if players[1].ready and players[2].ready and btnp() then
 		screen = "highscores"
-		state.players[1].ready = false
-		state.players[2].ready = false
-		scores = isnewscore(scores,state)
+		players[1].ready = false
+		players[2].ready = false
+		scores = isnewscore()
 		setscores()
 	end
 end
@@ -340,24 +327,24 @@ function setscores()
 	end
 end
 
-function isnewscore(scores,state)
+function isnewscore()
 	lscores = scores
 	for s in all(scores) do
-		if state.score > s[1] then
+		if score > s[1] then
 			lscores = getscores({
-				flr(state.score),
-				state.players[1].callsign,
-				state.players[2].callsign,
+				flr(score),
+				players[1].callsign,
+				players[2].callsign,
 				true
 			})
 			break
 		end
 	end
-	if state.score > sessionscore[1] then 
+	if score > sessionscore[1] then 
 		sessionscore = {
-			flr(state.score),
-			state.players[1].callsign,
-			state.players[2].callsign,
+			flr(score),
+			players[1].callsign,
+			players[2].callsign,
 			true
 		}
 	else sessionscore[4] = false end
@@ -374,35 +361,32 @@ end
 
 
 function  updategame()
-	if every(44*60) then music(const.music[1+flr(rnd(#const.music))]) end
-	local lstate = state
+	if every(44*60) then music(musics[1+flr(rnd(#musics))]) end
 	local events = {}
 	local sectors = initsectors(20,20)
-	sectors = updatesectors(sectors, state.players)
-	sectors = updatesectors(sectors, state.enemies)
-	sectors = updatesectors(sectors, state.projectiles)
+	sectors = updatesectors(sectors, players)
+	sectors = updatesectors(sectors, enemies)
+	sectors = updatesectors(sectors, projectiles)
 
-	lstate = updateplayers(lstate, events, sectors, lstate.time)
-	lstate.enemies = updateenemies(lstate.enemies, lstate, events, sectors)
-	lstate.projectiles = updateprojectiles(lstate.projectiles, sectors)
-	lstate = wavesystem(lstate)
-	events = returncollisions(events,lstate, sectors)
-	events = updateevents(lstate,events)
-	lstate.animations = updateanims(lstate.animations)
-	lstate = cleanup(lstate)
-	lstate.time += 1/60
-	lstate = updatecallsigns(lstate)
-	state = lstate
-	if state.players[1].death and state.players[2].death then
+	players = updateplayers(players, events, sectors, time)
+	enemies = updateenemies(enemies, events, sectors)
+	projectiles = updateprojectiles(projectiles, sectors)
+	wavesystem()
+	events = returncollisions(events, sectors)
+	events = updateevents(events)
+	animations = updateanims(animations)
+	projectiles = cleanupprojs(projectiles)
+	time += 1/60
+	if players[1].death and players[2].death then
 		screen = "gameover"
-		state.players[1].ready = false
-		state.players[2].ready = false
-		state.timebonus = flr(state.time)
+		players[1].ready = false
+		players[2].ready = false
+		timebonus = flr(time)
 	end
 end
 
-function updatecallsigns(state)
-	for p in all (state.players) do
+function updatecallsigns()
+	for p in all (players) do
 		if p.ready == false then
 			if btnp(0,p.id-1) then
 				p.callsign[1] -= 1
@@ -420,7 +404,6 @@ function updatecallsigns(state)
 			if btnp(4,p.id-1) then p.ready = true end
 		elseif p.ready and btnp(5,p.id-1) then p.ready = false end
 	end
-	return state
 end
 
 -- sector stuff below
@@ -475,16 +458,11 @@ function myneighbours(ex,ey,sectors)
 end
 
 
-function cleanup(state)
-	local lstate = state
-	-- lstate.enemies = filter(state.enemies, function(i)
-	-- 	return i.death == true
-	-- end)
-	lstate.projectiles = filter(state.projectiles, function(i)
+function cleanupprojs(projectiles)
+	lprojectiles = filter(projectiles, function(i)
 		return i.death == false
 	end)
-
-	return lstate
+	return lprojectiles
 end
 
 function respawn(p)
@@ -493,16 +471,15 @@ function respawn(p)
 	lp = p
 	lp.death = false
 	lp.energy = 0
-	lp.invulnerable = state.time
+	lp.invulnerable = time
 	return lp
 end
 
 -- player
-function updateplayers(state, events, sectors, time)
-	lstate = state
-	lstate.players = funmap(state.players, function(lp)
-		lp.energy += (lstate.multiplier/10)/60
-		local lbounds = const.bounds[lp.id]
+function updateplayers(players, events, sectors, time)
+	lplayers = funmap(players, function(lp)
+		lp.energy += (multiplier/10)/60
+		local lbounds = bounds[lp.id]
 		lp.x += lp.vx
 		lp.y += lp.vy
 		lp.vx = lerp(lp.vx, 0, 0.05)
@@ -512,7 +489,7 @@ function updateplayers(state, events, sectors, time)
 				lp.vy = -2
 				if lp.death == false then
 					poof = spawngfx("poof",lp.x,lp.y)
-					add(lstate.animations, poof)
+					add(animations, poof)
 					sfx(26)
 				end
 			else
@@ -524,7 +501,7 @@ function updateplayers(state, events, sectors, time)
 				lp.vy = 2
 				if lp.death == false then
 					poof = spawngfx("poof",lp.x,lp.y)
-					add(lstate.animations, poof)
+					add(animations, poof)
 					sfx(26)
 				end
 			else
@@ -536,7 +513,7 @@ function updateplayers(state, events, sectors, time)
 					lp.vx = -2
 					if lp.death == false then
 						poof = spawngfx("poof",lp.x,lp.y)
-						add(lstate.animations, poof)
+						add(animations, poof)
 						sfx(26)
 					end
 				else
@@ -548,7 +525,7 @@ function updateplayers(state, events, sectors, time)
 				lp.vx = 2
 				if lp.death == false then
 					poof = spawngfx("poof",lp.x,lp.y)
-					add(lstate.animations, poof)
+					add(animations, poof)
 					sfx(26)
 				end
 			else 
@@ -584,18 +561,18 @@ function updateplayers(state, events, sectors, time)
 				if lp.shield == true then 
 					lp.shield = false
 					lp.energy = 0
-					lp.invulnerable = state.time
+					lp.invulnerable = time
 					local loseshield = spawngfx("loseshield",lp.x,lp.y)
-					add(lstate.animations,loseshield)
+					add(animations,loseshield)
 					sfx(24)
 				elseif isinvulnerable(lp) == false then
 					lp.death = true
-					lstate.multiplier = 10
+					multiplier = 10
 					lp.energy = 0
 					sfx(24)
 					sfx(17)
 					local deathgfx = spawngfx("death",lp.x,lp.y)
-					add(lstate.animations,deathgfx)
+					add(animations,deathgfx)
 				end	
 			end
 			if btn(4,lp.id-1) and cooldowntimer(time, lp) then
@@ -618,11 +595,11 @@ function updateplayers(state, events, sectors, time)
 		end
 		return lp
 	end)
-	return lstate
+	return players
 end
 
 function isinvulnerable(p)
-	return (state.time - p.invulnerable) < 2
+	return (time - p.invulnerable) < 2
 end
 
 function playercolcheck(p,neighbours)
@@ -646,20 +623,20 @@ end
 
 function updatecam(p)
 	local lcam = p.cam
-	local lbounds = const.bounds[p.id]
+	local lbounds = bounds[p.id]
 	lcam.x = flr(lerp(lcam.x,p.x,0.2))
 	lcam.y = flr(lerp(lcam.y,p.y,0.2))
 	return lcam
 end
 
 -- collisions
-function returncollisions(events, state, sectors)
+function returncollisions(events, sectors)
 	local levents = {}
 	local nr = 0
-	each(state.projectiles, function(i)
+	each(projectiles, function(i)
 		local offset = 0
 		nr += 1
-		if #state.projectiles > 20 then offset = 3 end
+		if #projectiles > 20 then offset = 3 end
 		if every(4+offset,nr % 4+offset) then
 			local collision = projcollisioncheck(i, sectors)
 			if collision ~= nil then
@@ -688,7 +665,7 @@ function projcollisioncheck(proj,sectors)
 	if proj.origin == "player" then
 		neighbours = myneighbours(proj.x,proj.y,sectors)
 	elseif proj.origin == "enemy" then
-		neighbours = state.players
+		neighbours = players
 	end
 	each(neighbours, function(i)
 		local lrad = i.rad
@@ -734,7 +711,7 @@ function updateprojectiles(projs, sectors)
 			return lproj
 		end)
 		lprojs = filter(lprojs, function (i)
-			return outofbounds(i,const.limits) == false
+			return outofbounds(i,limits) == false
 		end)
 		lprojs = filter(lprojs, function (i)
 			return #lprojs < 100
@@ -750,7 +727,7 @@ end
 
 
 -- enemy
-function spawnenemy(pos,type,state)
+function spawnenemy(pos,type)
 	local enemy = {}
 	if type == "orb" then
 		enemy = { 
@@ -765,7 +742,7 @@ function spawnenemy(pos,type,state)
 			rad = 8,   
 			vector = vec(1,0),
 			velocity = 0.1,
-			movement = function(enemy, state, events)	
+			movement = function(enemy, events)	
 					if enemy.hit[1] then 
 						enemy.velocity += 0.05 
 						if enemy.hit[2] == 1 then
@@ -775,12 +752,12 @@ function spawnenemy(pos,type,state)
 						end
 						enemy.vector.y = mid(enemy.vector.y,-1,1)
 					end
-					local lbounds = const.combinedbounds
+
 			
-					if enemy.x > (lbounds.x2) then enemy.vector.x -= 0.03 end
-					if enemy.x < (lbounds.x1) then enemy.vector.x += 0.03 end
-					if enemy.y > (lbounds.y2) then enemy.vector.y -= 0.03 end
-					if enemy.y < (lbounds.y1) then enemy.vector.y += 0.03 end
+					if enemy.x > (combinedbounds.x2) then enemy.vector.x -= 0.03 end
+					if enemy.x < (combinedbounds.x1) then enemy.vector.x += 0.03 end
+					if enemy.y > (combinedbounds.y2) then enemy.vector.y -= 0.03 end
+					if enemy.y < (combinedbounds.y1) then enemy.vector.y += 0.03 end
 			end,
 			gfx = function(enemy, time)
 				palt(15,true)
@@ -807,13 +784,12 @@ function spawnenemy(pos,type,state)
 			vector = vec(0,0),
 			projdir = vec(1,0),
 			velocity = 0.3,
-			movement = function(enemy, state, events)	
-				local time = state.time
+			movement = function(enemy, events)	
 				if every(120) or enemy.vector.x == 0 and enemy.vector.y == 0 then
-					enemy.vector = const.vector[1+flr(rnd(4))]
+					enemy.vector = vector[1+flr(rnd(4))]
 					enemy.projdir = vec(-enemy.vector.x,-enemy.vector.y)
 				end
-				if outofbounds(enemy,const.combinedbounds) then
+				if outofbounds(enemy,combinedbounds) then
 					enemy.vector = vec(-enemy.vector.x,-enemy.vector.y)
 				end
 				if every(180) and enemy.projdir.x ~= 0 and enemy.projdir.y ~= 0 then
@@ -853,8 +829,7 @@ function spawnenemy(pos,type,state)
 			vector = vec(0,0),
 			projdir = vec(0,0),
 			velocity = 0.3,
-			movement = function(enemy, state, events)
-				local time = state.time
+			movement = function(enemy, events)
 				local closestplayer = getclosestplayer(enemy.x,enemy.y)
 				local directionofplayer = vectornormalized(vectora2b(enemy,closestplayer))
 				enemy.vector = vec(lerp(enemy.vector.x,directionofplayer.x,0.01),lerp(enemy.vector.y,directionofplayer.y,0.01))
@@ -902,7 +877,7 @@ function generatesnake(size,origin,direction,enemies)
 		hp = 2,
 		hit = {false, nil},
 		rad = 3,
-		movement = function(enemy,state,events) 
+		movement = function(enemy,events) 
 			if every(10) then
 				local target = getclosestplayer(enemy.x,enemy.y)
 				enemy.velocity += 0.01
@@ -944,17 +919,17 @@ function generatesnake(size,origin,direction,enemies)
 			vector = master.vector,
 			hp = 2,
 			rad = 3,
-			movement = function(enemy,state,events) 
+			movement = function(enemy,events) 
 
 				local target = nil
 				local targetid = enemy.id -1
-				for i in all(state.enemies) do
+				for i in all(enemies) do
 					if targetid == i.id then 
 						target = i 
 					end
 				end
 				if target == nil then 
-					enemy.movement = function(enemy,state,events) 
+					enemy.movement = function(enemy,events) 
 						if every(10) then
 							enemy.velocity += 0.01
 							local target = getclosestplayer(enemy.x,enemy.y)
@@ -1003,11 +978,11 @@ function generatespacetrash(size,origin,enemies)
     x = origin[1],
 		y = origin[2],
 		velocity = 0.1,
-    vector = const.vector[2],
+    vector = vector[2],
     hp = 2,
 		hit = {false, nil},
     rad = 3,
-		movement = function(i,state,events) end,
+		movement = function(i,events) end,
 		gfx = function(i)
 			palt(0,false)
 			palt(15,true)
@@ -1035,7 +1010,7 @@ function generatespacetrash(size,origin,enemies)
           vector = master.vector,
           hp = 2,
           rad = 3,
-          movement = function(slave,state,events)
+          movement = function(slave,events)
           end,
           gfx = master.gfx
         }
@@ -1071,9 +1046,9 @@ function coinflip()
 end
 
 function getclosestplayer(x,y)
-	local p = {x = const.bounds[2].x + rnd(200), y = const.bounds[2].y + rnd(200)}
-	local p1 = state.players[1]
-	local p2 = state.players[2]
+	local p = {x = bounds[2].x + rnd(200), y = bounds[2].y + rnd(200)}
+	local p1 = players[1]
+	local p2 = players[2]
 	local distance1 = abs((p1.x+p1.y)-(x+y))
 	local distance2 = abs((p2.x+p2.y)-(x+y))
 
@@ -1090,23 +1065,22 @@ function vectora2b(entitya,entityb)
 	return vec((entityb.x-entitya.x),(entityb.y-entitya.y))
 end
 
-function updateenemies(e, state, events, sectors)
-	local time = state.time
+function updateenemies(e, events, sectors)
 	local les = {}
 	les = filter(e, function(le)
 	
 		le.x += le.vector.x * le.velocity
 		le.y += le.vector.y * le.velocity
 		
-		le.movement(le,state,events)
+		le.movement(le,events)
 		le.hit = {false, nil}
 		if le.hp <= 0 then 
 			add(events,{type="animation", object = spawngfx("explosion",le.x,le.y)})
 		end
 		if le.hp <= 0 then 
-			state.score += le.points * (state.multiplier/10)
-			state.multiplier += 1
-			state.lastpoints = le.points
+			score += le.points * (multiplier/10)
+			multiplier += 1
+			lastpoints = le.points
 			sfx(15)
 		end
 		return le.hp > 0
@@ -1116,15 +1090,14 @@ end
 
 --events
 
-function updateevents(state,events)
-	local lstate = state
+function updateevents(events)
 
 	local enemy = filter(events, function (i)
 	return i.type == "enemy"
 	end)
 	each (enemy, function (i)
-	 local e = spawnenemy({i.object.x,i.object.y},i.object.type,state)
-	 add(lstate.enemies,e)
+	 local e = spawnenemy({i.object.x,i.object.y},i.object.type)
+	 add(enemies,e)
 	end)
 	
 	local newprojs = filter(events, function (i) 
@@ -1132,13 +1105,13 @@ function updateevents(state,events)
 	end)
 
 	each (newprojs, function (i)
-		add(lstate.projectiles, i.object)
+		add(projectiles, i.object)
 		local object = spawngfx("flare",i.object.x,i.object.y)
 		
 		if i.object.color == 8 then
 			object = spawngfx("eflare",i.object.x,i.object.y)
 		end
-		add(lstate.animations,object)
+		add(animations,object)
 	end)
 
 
@@ -1148,46 +1121,46 @@ function updateevents(state,events)
 
 	each (collisions, function (i)
 		local projcolgfx = spawngfx("projcol",i.object.x,i.object.y)
-		add(lstate.animations,projcolgfx)
+		add(animations,projcolgfx)
 		local hitgfx = spawngfx("ehit",i.object.hit.x,i.object.hit.y)
-		add(lstate.animations,hitgfx)
+		add(animations,hitgfx)
 		
 		if i.object.hit.type == "player" then
-			for p in all(lstate.players) do
+			for p in all(players) do
 				if i.object.hit.id == p.id then
 					if p.shield == true and isinvulnerable(p) == false then 
 						p.shield = false
 						p.energy = 0
-						p.invulnerable = state.time
+						p.invulnerable = time
 						local loseshield = spawngfx("loseshield",i.object.hit.x,i.object.hit.y)
-						add(lstate.animations,loseshield)
+						add(animations,loseshield)
 						sfx(24)
 					elseif isinvulnerable(p) == false then
 						p.death = true
-						state.multiplier = 10
+						multiplier = 10
 						sfx(24)
 						sfx(17)
 						sfx(19)
 						p.energy = 0
 						local deathgfx = spawngfx("death",i.object.hit.x,i.object.hit.y)
-						add(lstate.animations,deathgfx)
+						add(animations,deathgfx)
 					end	
 				end
 			end
 		end
 		if i.object.hit.type == "enemy" then
-			for e in all(lstate.enemies) do
+			for e in all(enemies) do
 				if i.object.hit.id == e.id then
 					e.hp -= 1
 					e.hit = {true, i.object.id}
-					for p in all(lstate.players) do
-						p.energy += 1 * (state.multiplier/10)
+					for p in all(players) do
+						p.energy += 1 * (multiplier/10)
 					end
 				end
 			end
 		end
 		if i.object.hit.type ~= "player" then
-			lstate.score += 1
+			score += 1
 		end
 	end)
 
@@ -1196,10 +1169,8 @@ function updateevents(state,events)
 	end)
 
 	each (anims, function (i)
-		add(lstate.animations,i.object)
+		add(animations,i.object)
 	end)
-
-	return lstate
 end
 
 --animation
@@ -1373,8 +1344,8 @@ function _draw()
 end
 
 function drawgame()
-	drawplayerviewport(state.players[2],0,61,-16)
-	drawplayerviewport(state.players[1],68,128,-112)
+	drawplayerviewport(players[2],0,61,-16)
+	drawplayerviewport(players[1],68,128,-112)
 	clip()
 	camera(0,0)
 	drawui()
@@ -1382,9 +1353,9 @@ end
 
 function drawtitle()
 	local starcolors = {5,6,7}
-	for l = 1,#const.stars do
-		if #state.enemies < 10*(l+1) then
-			for s in all(const.stars[l]) do
+	for l = 1,#stars do
+		if #enemies < 10*(l+1) then
+			for s in all(stars[l]) do
 					pset((0 / l+5)*0.9+s[1]-128,(0 / l+5)*0.9+s[2]-128,starcolors[l])
 			end
 		end
@@ -1397,32 +1368,32 @@ function drawtitle()
 	if every(8) then pal(7,8) end
 
 
-	camera(48-cos(state.time/24)*48,-20)
+	camera(48-cos(time/24)*48,-20)
 	for x = 36,0,-1 do
 		for y = 0,4 do
-			local i = x * 7 - (state.time *60)
+			local i = x * 7 - (time *60)
 			map(x,y,x*7,y*6-cos(i/128)*5,1,1)
 		end
 	end
-	camera(-10+sin(state.time/24)*10,-40)
+	camera(-10+sin(time/24)*10,-40)
 	for x = 36,0,-1 do
 		for y = 5,10 do
-			local i = x * 7 - (state.time *60)
+			local i = x * 7 - (time *60)
 			map(x,y,x*7,y*6-sin(i/128)*5,1,1)
 		end
 	end
 	camera()
-	if state.players[1].ready then print("PLAYER1 READY",40,16) end	
-	if state.players[2].ready then print("PLAYER2 READY",40,100) end
+	if players[1].ready then print("PLAYER1 READY",40,16) end	
+	if players[2].ready then print("PLAYER2 READY",40,100) end
 	pal()
 end
 
 function drawhighscores()
 
 	local starcolors = {5,6,7}
-	for l = 1,#const.stars do
-		if #state.enemies < 10*(l+1) then
-			for s in all(const.stars[l]) do
+	for l = 1,#stars do
+		if #enemies < 10*(l+1) then
+			for s in all(stars[l]) do
 					pset((xoffset / l+5)*0.9+s[1]-128,(0 / l+5)*0.9+s[2]-128,starcolors[l])
 			end
 		end
@@ -1436,7 +1407,7 @@ function drawhighscores()
 	local mapoffset = 80 + xoffset - (xoffset*0.5)
 	for x = 36,0,-1 do
 		for y = 11,15 do
-			local i = x * 7 - (state.time *60)
+			local i = x * 7 - (time *60)
 			map(x,y,mapoffset + x*7,-50+y*6-sin(i/128)*5,1,1)
 		end
 	end
@@ -1476,25 +1447,25 @@ function drawascore(nr,x,y)
 end
 
 function drawgameover()
-	drawplayerviewport(state.players[2],0,61,-16)
-	drawplayerviewport(state.players[1],68,128,-112)
+	drawplayerviewport(players[2],0,61,-16)
+	drawplayerviewport(players[1],68,128,-112)
 	clip()
 	camera()
 	rect(-1,61,128,67,5)
 	
-	local scorestring = "" .. flr(state.score)
+	local scorestring = "" .. flr(score)
 	drawscore(scorestring, 4,60)
-	drawmini("+" .. flr(state.timebonus),4+(#scorestring*10),63,14)
-	drawmini(minutesseconds(state.timebonus),101,63,7)
+	drawmini("+" .. flr(timebonus),4+(#scorestring*10),63,14)
+	drawmini(minutesseconds(timebonus),101,63,7)
 	local clr1, clr2 = 7
-	if state.players[1].ready then clr1 = 11 end
-	if state.players[2].ready then clr2 = 11 end
-	drawcallsign(state.players[2].callsign,4,50,clr2)
-	drawcallsign(state.players[1].callsign,4,74,clr1)
+	if players[1].ready then clr1 = 11 end
+	if players[2].ready then clr2 = 11 end
+	drawcallsign(players[2].callsign,4,50,clr2)
+	drawcallsign(players[1].callsign,4,74,clr1)
 	
 	for x = 36,0,-1 do
 		for y = 16,20 do
-			local i = x * 7 - (state.time *60)
+			local i = x * 7 - (time *60)
 			if every(24,-x,8) == false then pal(7,0) pal(14,7) pal(11,5) end
 			map(x,y,12+ x*7,-80+y*6-sin(i/128)*5,1,1)
 			map(x,y+4,12+ x*7,-12+y*6-cos(i/128)*5,1,1)
@@ -1503,17 +1474,17 @@ function drawgameover()
 	end
 end
 
-function drawcallsign(callsign,x,y,clr)
+function drawcallsign(callnr,x,y,clr)
 	local lcallsign = {}
 	for i = 1,2 do
-		local words = const.callsign[i]
+		local words = callsign[i]
 		local sub1 = 0
 		local sub2 = 0
 		for n = 1,#words do
-			if tonum(sub(words,n,n+1)) == callsign[i] then
+			if tonum(sub(words,n,n+1)) == callnr[i] then
 				sub1 = n
 			end 
-			if tonum(sub(words,n,n+1)) == callsign[i]+1 then
+			if tonum(sub(words,n,n+1)) == callnr[i]+1 then
 				sub2 = n
 			end 
 		end
@@ -1533,7 +1504,7 @@ function drawplayerviewport(p,y1,y2,yoffset)
 	drawgrid(p)
 	drawstars(p)
 	drawenemies(p,cambounds,y1,y2,yoffset)
-	for player in all(state.players) do
+	for player in all(players) do
 		if player.death ~= true then
 			if isinvulnerable(player) then
 				if every(8,0,4) then drawplayer(player, p, y1, y2, yoffset) end
@@ -1545,7 +1516,7 @@ function drawplayerviewport(p,y1,y2,yoffset)
 		end
 	end
 	drawprojectiles(p,cambounds,y1,y2,yoffset)
-	for anim in all(state.animations) do
+	for anim in all(animations) do
 		anim.gfx(anim)
 	end
 	
@@ -1553,28 +1524,28 @@ function drawplayerviewport(p,y1,y2,yoffset)
 end
 
 function drawdeadplayer(p)
-			-- flipy = nil
-			-- yoffset = 0
-			-- if p.id == 2 then flipy = true yoffset = 1 end
-			-- if every(2) then 
-			-- 	clr = 5
-			-- 	if p.energy > 95 and every(4) then clr = 7 end
-			-- 	line(p.x-4,p.y,p.x-6,p.y,clr)
-			-- 	line(p.x+4,p.y,p.x+6,p.y,clr)
-			-- 	line(p.x,p.y+7,p.x,p.y+9,clr)
-			-- 	line(p.x,p.y-7,p.x,p.y-9,clr)
-			-- 	rect(p.x-4,p.y-7,p.x+4,p.y+7,clr)
-			-- 	rectfill(p.x-4,p.y+7,p.x+4,p.y+7-flr(p.energy*0.14),clr)
-			-- 	palt(15,true) palt(0,false) spr(3,p.x-3,p.y-8+yoffset,1,2,false,flipy) palt() 
-			-- 	drawmini(""..flr(max(100-p.energy),0),p.x+6,p.y+5,clr)
-			-- end
+		flipy = nil
+		yoffset = 0
+		if p.id == 2 then flipy = true yoffset = 1 end
+		if every(2) then 
+			clr = 5
+			if p.energy > 95 and every(4) then clr = 7 end
+			line(p.x-4,p.y,p.x-6,p.y,clr)
+			line(p.x+4,p.y,p.x+6,p.y,clr)
+			line(p.x,p.y+7,p.x,p.y+9,clr)
+			line(p.x,p.y-7,p.x,p.y-9,clr)
+			rect(p.x-4,p.y-7,p.x+4,p.y+7,clr)
+			rectfill(p.x-4,p.y+7,p.x+4,p.y+7-flr(p.energy*0.14),clr)
+			palt(15,true) palt(0,false) spr(3,p.x-3,p.y-8+yoffset,1,2,false,flipy) palt() 
+			drawmini(""..flr(max(100-p.energy),0),p.x+6,p.y+5,clr)
+		end
 end
 
 function drawstars(p)
 	local starcolors = {5,6,7}
-	for l = 1,#const.stars do
-		if #state.enemies < 10*(l+1) then
-			for s in all(const.stars[l]) do
+	for l = 1,#stars do
+		if #enemies < 10*(l+1) then
+			for s in all(stars[l]) do
 					pset((p.cam.x / l+5)*0.9+s[1]-128,(p.cam.y / l+5)*0.9+s[2]-128,starcolors[l])
 			end
 		end
@@ -1582,7 +1553,7 @@ function drawstars(p)
 end
 
 function drawgrid(p)
-	local box = const.bounds[p.id]
+	local box = bounds[p.id]
 		if every(2,0) or stat(1) >= 1 then 
 			for x = box.x,box.x+box.w,50 do
 				line(x,box.y,x,box.y+box.h,5)
@@ -1592,11 +1563,11 @@ function drawgrid(p)
 			end
 			-- rect(box.x,box.y,box.x+box.w,box.y+box.h,11) 
 		end
-		if every(30,3,5) then rect(const.combinedbounds.x1, const.combinedbounds.y1, const.combinedbounds.x2, const.combinedbounds.y2 ,14) end
+		if every(30,3,5) then rect(combinedbounds.x1, combinedbounds.y1, combinedbounds.x2, combinedbounds.y2 ,14) end
 end		
 
 function drawenemies(p, cambounds,y1,y2,yoffset)
-	for enemy in all(state.enemies) do
+	for enemy in all(enemies) do
 		if outofbounds(enemy,cambounds) then 
 			local x = mid((enemy.x),p.cam.x-66,p.cam.x+64)
 			local y = mid((enemy.y),p.cam.y+y1+yoffset-1,p.cam.y+y2+yoffset)
@@ -1605,7 +1576,7 @@ function drawenemies(p, cambounds,y1,y2,yoffset)
 			pal()
 		end
 		if enemy.hit[1] then pal(0,7+flr(rnd(2))) pal(7,0) sfx(16) end
-		enemy.gfx(enemy,state.time)
+		enemy.gfx(enemy,time)
 		
 		pal()
 	end
@@ -1644,7 +1615,7 @@ end
 
 function drawprojectiles(p,cambounds,y1,y2,yoffset)
 	
-	for proj in all(state.projectiles) do
+	for proj in all(projectiles) do
 
 		if outofbounds(proj,cambounds) then 
 			local x = mid((proj.x),p.cam.x-64,p.cam.x+63)
@@ -1688,12 +1659,12 @@ end
 function drawui()
 	rect(-1,61,128,67,5)
 	
-	local scorestring = "" .. flr(state.score)
+	local scorestring = "" .. flr(score)
 	drawscore(scorestring, 4,60)
-	local multiplier = "" .. state.multiplier
+	local multiplier = "" .. multiplier
 	if #multiplier == 2 then multiplier = sub(multiplier,1,1) .. "." .. sub(multiplier,2,2) end
 	drawmini("x" .. multiplier,4+(#scorestring*10),63,5)
-	drawmini(minutesseconds(state.time),101,63,5)
+	drawmini(minutesseconds(time),101,63,5)
 	pal()
 	--debug
 	-- local percent = flr(stat(1)*100)
