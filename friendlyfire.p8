@@ -14,11 +14,12 @@ __lua__
 
 --init and help functions below
 function _init()
-	screen = "gameover"
-	music(1)
+	screen = "title"
+	music(21)
 	
 	callsign = { "01ACID02BITTER03COLD04DEAD05ELECTRIC06FILTHY07GIANT08HOT09ILL10JANKY11KILL12LOST13MEDIOCRE14NASTY15OPTIC16PROUD17QUIRKY18RADICAL19SALTY20TOP21URBAN22VICIOUS23WOKE24XENIAL25YELLOW26ZESTY", "01ARROW02BANANA03CURE04DEATH05ENEMY06FOX07GIANT08HORROR09IDIOT10JUSTICE11KING12LOVE13MASS14NEEDLE15ORANGE16PILOT17QUEEN18RAVEN19SIREN20TERROR21UNCLE22VOICE23WARRIOR24XENO25YOUTH26ZODIAC"
 	}
+	origo = {x = 300, y = 325}
 	musics = {0,4,8}
 	bounds = {
 			{x = 200, y = 350, w = 200, h = 100},
@@ -30,17 +31,22 @@ function _init()
 	limits = {
 			x1 = 100, x2 = 500, y1 = 100, y2 = 550
 		}
-	vector = {
+	vectors = {
 			vec(0,-1), vec(0,1), vec(-1,0), vec(1,0)
 		}
 	stars = initstars(64,3)
 
 	initgame()
-	sessionscore = {0,{0,0},{0,0}}
+	sessionscore = {0,{0,0,"BEAT","THIS"},{0,0,"",""},false}
 	cartdata(1)
 	scores = getscores()
 	xoffset = 0
-	printh("init")
+	xvelocity = 0.5
+  menuitem(3, "reset highscores", function() 
+		for i = 1,#scores*5 do
+			dset(nr,0)
+		end
+	end)
 end
 
 function initgame()
@@ -55,34 +61,38 @@ function initgame()
 	time = 0
 	difficulty = 1
 	players = {
-			initplayer(1),
-			initplayer(2)
+		initplayer(1),
+		initplayer(2)
 	}	
+end
+
+function generatespawnpoint()
+	return {x = 200 + flr(rnd(2))*rnd(200), y = 200 + flr(rnd(2))*rnd(350)}
 end
 
 function initplayer(nr)
  local player = { 
-	 			id = nr,
-				type = "player", 
-				x = bounds[nr].x+100, 
-				y = bounds[nr].y+50, 
-				rad = 3, 
-				vx = 0, 
-				vy = 0, 
-				energy = 0, 
-				invulnerable = 0, 
-				cam = {
-					x = bounds[nr].x+100, y = bounds[nr].y+50 
-				},
-				shield = false, 
-				death = false, 
-				ready = false, 
-				shieldrad = 8, 
-				projdir = vector[nr], 
-				cooldown = -1, 
-				rateoffire = {0,0.3},
-				callsign = {nr,nr}
-			}
+		id = nr,
+		type = "player", 
+		x = bounds[nr].x+100, 
+		y = bounds[nr].y+50, 
+		rad = 3, 
+		vx = 0, 
+		vy = 0, 
+		energy = 0, 
+		invulnerable = 0, 
+		cam = {
+			x = bounds[nr].x+100, y = bounds[nr].y+50 
+		},
+		shield = false, 
+		death = false, 
+		ready = false, 
+		shieldrad = 8, 
+		projdir = vectors[nr], 
+		cooldown = -1, 
+		rateoffire = {0,0.3},
+		callsign = {flr(rnd(25)),flr(rnd(25)),"\139 CHOOSE \145","\148 CALLSIGN \131"}
+	}
 	return player
 end
 function initstars(a,layer)
@@ -195,14 +205,17 @@ function wavesystem()
 		spawn = true
 	end
 	while (every(60*(mid(2,difficulty,15))) or spawn) and #enemies+#things < 0+mid(5,difficulty,30) and stat(1) < 0.9 do
-	 	local origin = {bounds[2].x + rnd(200),bounds[2].y + rnd(200)}
+	 	local origin = generatespawnpoint()
 		 if difficulty < 2 then
 	 		add(things,spawnenemy(origin,"robot"))
+
 	 	elseif difficulty < 4 then
 	 		local enemy = enemiesdb[1+flr(rnd(2))]
 			add(things,spawnenemy(origin,enemy))
+			things = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,things)
+
 		elseif difficulty < 5 then
-			things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,vector[4],things)
+			things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,vectors[1+flr(rnd(4))],things)
 		elseif difficulty < 6 then
 			add(things,spawnenemy(origin,"alien"))
 			add(things,spawnenemy(origin,"alien"))
@@ -243,12 +256,23 @@ function updatetitle()
 	for p in all(players) do
 		if btnp(4,p.id-1) then 
 			p.ready = true
+			sfx(23)
+			
+			time = 0
 		elseif p.ready and btnp(5,p.id-1) then 
 			p.ready = false 
+			sfx(18)
 		end
 	end
-	if players[1].ready and players[2].ready then
+	if time > 15 then
+	 screen = "highscores"
+	 xoffset = 0
+	 time = 0
+	end
+	if players[1].ready and players[2].ready and time > 3 then
 		screen = "game"
+		music(0)
+		time = 0
 		initgame()
 	end
 end
@@ -265,8 +289,11 @@ function updategameover()
 		score += 5
 		timebonus -= 0.5
 	end
-	if players[1].ready and players[2].ready and btnp() then
+	if players[1].ready and players[2].ready and time > 4 then
 		screen = "highscores"
+		xoffset = 0
+		music(21)
+		time = 0
 		players[1].ready = false
 		players[2].ready = false
 		scores = isnewscore()
@@ -284,6 +311,21 @@ function sort(a,cmp)
   end
 end
 
+function getcallsigntostring(i,nr)
+	local words = callsign[i]
+	local sub1 = 0
+	local sub2 = 0
+	for n = 1,#words do
+		if tonum(sub(words,n,n+1)) == nr then
+			sub1 = n
+		end 
+		if tonum(sub(words,n,n+1)) == nr+1 then
+			sub2 = n
+		end 
+	end
+	return sub(words,sub1+2,sub2-1)
+end
+
 function getscores(newscore)
 	local lscores = {}
 	local newscoreoffset = 0
@@ -299,8 +341,8 @@ function getscores(newscore)
 		local score = dget(s)
 		add(lscores,{
 			score,
-			{dget(s+1),dget(s+2)},
-			{dget(s+3),dget(s+4)},
+			{dget(s+1),dget(s+2),getcallsigntostring(1,dget(s+1)),getcallsigntostring(2,dget(s+2))},
+			{dget(s+3),dget(s+4),getcallsigntostring(1,dget(s+3)),getcallsigntostring(2,dget(s+4))},
 			false
 		})
 		
@@ -354,9 +396,35 @@ end
 
 
 function updatehighscores()
-	xoffset += 0.5
+	xoffset += xvelocity
+	xvelocity = lerp(xvelocity,0.5,0.1)
+	xvelocity = mid(-2,xvelocity,2)
 	xoffset = xoffset % (1000)
-	updatetitle()
+	time += 1/60
+	for p in all(players) do
+		if btn(1) then
+			xvelocity += 0.1
+		end
+		if btn(0) then
+			xvelocity-= 0.1
+		end
+		if btnp(4,p.id-1) then 
+			p.ready = true
+			sfx(23)
+		elseif p.ready and btnp(5,p.id-1) then 
+			p.ready = false 
+		end
+	end
+	if players[1].ready and players[2].ready then
+		screen = "title"
+		time = 0
+		players[1].ready = false
+		players[2].ready = false
+	end
+	if time > 25 then
+	 screen = "title"
+	 time = 0
+	end
 end
 
 
@@ -379,9 +447,12 @@ function  updategame()
 	time += 1/60
 	if players[1].death and players[2].death then
 		screen = "gameover"
+		sfx(-1,1)
+		music(19)
 		players[1].ready = false
 		players[2].ready = false
 		timebonus = flr(time)
+		time = 0
 	end
 end
 
@@ -389,20 +460,28 @@ function updatecallsigns()
 	for p in all (players) do
 		if p.ready == false then
 			if btnp(0,p.id-1) then
+				sfx(18)
 				p.callsign[1] -= 1
+				p.callsign[3] = getcallsigntostring(1,p.callsign[1])
 			elseif btnp(1,p.id-1) then
+				sfx(18)
 				p.callsign[1] += 1
+				p.callsign[3] = getcallsigntostring(1,p.callsign[1])
 			elseif btnp(2,p.id-1) then
+				sfx(18)
 				p.callsign[2] -= 1
+				p.callsign[4] = getcallsigntostring(2,p.callsign[2])
 			elseif btnp(3,p.id-1) then
+				sfx(18)
 				p.callsign[2] += 1
+				p.callsign[4] = getcallsigntostring(2,p.callsign[2])
 			end
 			if p.callsign[1] < 1 then p.callsign[1] = 26 end
 			if p.callsign[2] < 1 then p.callsign[2] = 26 end
 			p.callsign[1] = max(1,p.callsign[1] % 27)
 			p.callsign[2] = max(1,p.callsign[2] % 27)
-			if btnp(4,p.id-1) then p.ready = true end
-		elseif p.ready and btnp(5,p.id-1) then p.ready = false end
+			if btnp(4,p.id-1) then p.ready = true time = 0 sfx(25) end
+		elseif p.ready and btnp(5,p.id-1) then p.ready = false 	sfx(18) end
 	end
 end
 
@@ -488,7 +567,7 @@ function updateplayers(players, events, sectors, time)
 			if btn(5,lp.id-1) then 
 				lp.vy = -2
 				if lp.death == false then
-					poof = spawngfx("poof",lp.x,lp.y)
+					poof = spawngfx("poof",lp.x,lp.y,lp.id)
 					add(animations, poof)
 					sfx(26)
 				end
@@ -500,7 +579,7 @@ function updateplayers(players, events, sectors, time)
 			if btn(5,lp.id-1) then 
 				lp.vy = 2
 				if lp.death == false then
-					poof = spawngfx("poof",lp.x,lp.y)
+					poof = spawngfx("poof",lp.x,lp.y,lp.id)
 					add(animations, poof)
 					sfx(26)
 				end
@@ -512,7 +591,7 @@ function updateplayers(players, events, sectors, time)
 			if btn(5,lp.id-1) then 
 					lp.vx = -2
 					if lp.death == false then
-						poof = spawngfx("poof",lp.x,lp.y)
+						poof = spawngfx("poof",lp.x,lp.y,lp.id)
 						add(animations, poof)
 						sfx(26)
 					end
@@ -524,7 +603,7 @@ function updateplayers(players, events, sectors, time)
 			if btn(5,lp.id-1) then 
 				lp.vx = 2
 				if lp.death == false then
-					poof = spawngfx("poof",lp.x,lp.y)
+					poof = spawngfx("poof",lp.x,lp.y,lp.id)
 					add(animations, poof)
 					sfx(26)
 				end
@@ -737,16 +816,16 @@ function spawnenemy(pos,type)
 			subtype = type,
 			hp = 30, 
 			hit = {false, nil},
-			x = pos[1], 
-			y =  pos[2],
+			x = pos.x, 
+			y =  pos.y,
 			rad = 8,   
-			vector = vec(1,0),
+			vector = vectornormalized(vectora2b(vec(pos.x,pos.y),vec(noise(origo.x,200),noise(origo.y,200)))),
 			velocity = 0.1,
 			movement = function(enemy, events)	
 					if enemy.hit[1] then 
 						enemy.velocity += 0.05 
 						if enemy.hit[2] == 1 then
-							enemy.vector.x -= 0.05
+							enemy.vector.y -= 0.05
 						else
 							enemy.vector.y += 0.05
 						end
@@ -778,15 +857,15 @@ function spawnenemy(pos,type)
 			subtype = type,
 			hp = 3, 
 			hit = {false, nil},
-			x = pos[1], 
-			y =  pos[2],
+			x = pos.x, 
+			y =  pos.y,
 			rad = 6,   
 			vector = vec(0,0),
 			projdir = vec(1,0),
 			velocity = 0.3,
 			movement = function(enemy, events)	
 				if every(120) or enemy.vector.x == 0 and enemy.vector.y == 0 then
-					enemy.vector = vector[1+flr(rnd(4))]
+					enemy.vector = vectors[1+flr(rnd(4))]
 					enemy.projdir = vec(-enemy.vector.x,-enemy.vector.y)
 				end
 				if outofbounds(enemy,combinedbounds) then
@@ -823,8 +902,8 @@ function spawnenemy(pos,type)
 			subtype = type,
 			hp = 3, 
 			hit = {false, nil},
-			x = pos[1], 
-			y =  pos[2],
+			x = pos.x, 
+			y =  pos.y,
 			rad = 6,   
 			vector = vec(0,0),
 			projdir = vec(0,0),
@@ -870,8 +949,8 @@ function generatesnake(size,origin,direction,enemies)
 		type = "enemy",
 		subtype = "head",
 		snakeid = 0,
-		x = origin[1],
-		y = origin[2],
+		x = origin.x,
+		y = origin.y,
 		velocity = 1,
 		vector = vec(0,0),
 		hp = 2,
@@ -965,6 +1044,11 @@ function generatesnake(size,origin,direction,enemies)
   end)
   return enemies
 end
+
+function noise(nr,range)
+	return nr+(rnd(range)-(range/2))
+end
+
 function generatespacetrash(size,origin,enemies)
   local generatedsize = 1
   local master = {
@@ -975,10 +1059,10 @@ function generatespacetrash(size,origin,enemies)
     id = flr(rnd(1000)),
     type = "enemy",
     subtype = "master",
-    x = origin[1],
-		y = origin[2],
+    x = origin.x,
+		y = origin.y,
 		velocity = 0.1,
-    vector = vector[2],
+    vector = vectornormalized(vectora2b(vec(origin.x,origin.y),vec(noise(origo.x,200),noise(origo.y,200)))),
     hp = 2,
 		hit = {false, nil},
     rad = 3,
@@ -1017,9 +1101,9 @@ function generatespacetrash(size,origin,enemies)
         local crash = true
         while crash do
 					crash = false
-          local offset = vlist[1+flr(rnd(4))]
-          slave.x += offset[1]*8
-          slave.y += offset[2]*8
+          local offset = vectors[1+flr(rnd(4))]
+          slave.x += offset.x*8
+          slave.y += offset.y*8
           for i2 in all(construct) do
             if i2.x == slave.x and i2.y == slave.y then crash = true end          
           end
@@ -1071,7 +1155,6 @@ function updateenemies(e, events, sectors)
 	
 		le.x += le.vector.x * le.velocity
 		le.y += le.vector.y * le.velocity
-		
 		le.movement(le,events)
 		le.hit = {false, nil}
 		if le.hp <= 0 then 
@@ -1083,7 +1166,7 @@ function updateenemies(e, events, sectors)
 			lastpoints = le.points
 			sfx(15)
 		end
-		return le.hp > 0
+		return le.hp > 0 and outofbounds(le,limits) == false
 	end)
 	return les
 end
@@ -1185,21 +1268,24 @@ function updateanims(animations)
 	return lanims2
 end
 
-function spawngfx(type, lx, ly)
+function spawngfx(type, lx, ly, id)
 	gfx = {}
+	local flipy = false
+	if id == 2 then flipy = true end
 	if type == "poof" then 
 		gfx = {
 			frame = 0,
 			runtime = 8,
 			x = lx,
 			y = ly,
+			flipy = flipy,
 			gfx = function(gfx)
 				local clrs = {14,11}
 				if every(6,-gfx.frame,1) then
 					local clr = clrs[1+flr(rnd(#clrs))]
 					pal(7,clr)
 					palt(15,true)
-					spr(46,gfx.x-4,gfx.y-8,2,2)
+					spr(46,gfx.x-4,gfx.y-8,2,2,false,gfx.flipy)
 				end
 				pal()
 			end	
@@ -1341,6 +1427,10 @@ function _draw()
 	elseif screen == "gameover" then
 	 	drawgameover()
 	end
+		--debug
+	camera()
+	-- local percent = flr(stat(1)*100)
+	-- print(percent .. "%", 4 , 4 , stat(1)*10)
 end
 
 function drawgame()
@@ -1352,39 +1442,19 @@ function drawgame()
 end
 
 function drawtitle()
-	local starcolors = {5,6,7}
-	for l = 1,#stars do
-		if #enemies < 10*(l+1) then
-			for s in all(stars[l]) do
-					pset((0 / l+5)*0.9+s[1]-128,(0 / l+5)*0.9+s[2]-128,starcolors[l])
-			end
-		end
+	if players[2].ready then 
+		drawtextfrommap(0,0,36,12,12)
+	end	
+	if players[1].ready then
+		drawtextfrommap(0,0,36,12,80)
 	end
 
-	
-	if every(10,5,5) == false then palt(7,true) end
-	if every(16,0,5) == false then palt(11,true) end
-	if every(30,13,15) == false then palt(14,true) end
-	if every(8) then pal(7,8) end
 
-
-	camera(48-cos(time/24)*48,-20)
-	for x = 36,0,-1 do
-		for y = 0,4 do
-			local i = x * 7 - (time *60)
-			map(x,y,x*7,y*6-cos(i/128)*5,1,1)
-		end
-	end
-	camera(-10+sin(time/24)*10,-40)
-	for x = 36,0,-1 do
-		for y = 5,10 do
-			local i = x * 7 - (time *60)
-			map(x,y,x*7,y*6-sin(i/128)*5,1,1)
-		end
-	end
 	camera()
-	if players[1].ready then print("PLAYER1 READY",40,16) end	
-	if players[2].ready then print("PLAYER2 READY",40,100) end
+	print("THIS IS A COOPERATIVE GAME",14,53)
+	print("PRESS \151 ON BOTH CONTROLLERS",10,59)
+	
+	
 	pal()
 end
 
@@ -1392,25 +1462,15 @@ function drawhighscores()
 
 	local starcolors = {5,6,7}
 	for l = 1,#stars do
-		if #enemies < 10*(l+1) then
 			for s in all(stars[l]) do
-					pset((xoffset / l+5)*0.9+s[1]-128,(0 / l+5)*0.9+s[2]-128,starcolors[l])
+					local x = ((xoffset / (4-l)+5)*0.9+s[1]-128) % 127 
+					pset(x,(0 /l+5)*0.9+s[2]-128,starcolors[l])
 			end
-		end
 	end
-
-	-- if every(10,5,5) == false then pal(11,8) end
-	-- if every(30,0,10) == false then palt(11,true) end
-	-- if every(30,13,20) == false then palt(14,true) end
 	
 
-	local mapoffset = 80 + xoffset - (xoffset*0.5)
-	for x = 36,0,-1 do
-		for y = 11,15 do
-			local i = x * 7 - (time *60)
-			map(x,y,mapoffset + x*7,-50+y*6-sin(i/128)*5,1,1)
-		end
-	end
+	local mapoffset = - 80+ xoffset - (xoffset*0.5)
+	drawtextfrommap(0,11,33,-mapoffset,-50)
 	
 	camera(-50+xoffset)
 	drawascore(0, 84,70)
@@ -1421,12 +1481,26 @@ function drawhighscores()
 	pal()
 end
 
+function drawtextfrommap(mx,my,length,sx,sy)
+	local sx, sy = sx or 0, sy or 0
+	for x = mx+length ,mx,-1 do
+		for y = my,my+4 do
+			if every(33,x,4) == false then  pal(7,0) pal(14,7) pal(11,5) end
+			if every(16,-x,6) then   pal(11,0) pal(14,11) end
+			local i = x * 7 - (time *60)
+			map(x,y,sx + x*7,sy+y*6-sin(i/128)*5,1,1)
+			pal()
+		end
+	end
+end
+
 function drawascore(nr,x,y)
 	local clrs = {7,8,14,11}
 	new = false
 	local score = ""
 	if nr == 0 then 
 		score = sessionscore
+		new = sessionscore[4]
 		print("session",x,y-12,5)
 	else
 		score = scores[nr]
@@ -1460,38 +1534,17 @@ function drawgameover()
 	local clr1, clr2 = 7
 	if players[1].ready then clr1 = 11 end
 	if players[2].ready then clr2 = 11 end
+	
 	drawcallsign(players[2].callsign,4,50,clr2)
 	drawcallsign(players[1].callsign,4,74,clr1)
-	
-	for x = 36,0,-1 do
-		for y = 16,20 do
-			local i = x * 7 - (time *60)
-			if every(24,-x,8) == false then pal(7,0) pal(14,7) pal(11,5) end
-			map(x,y,12+ x*7,-80+y*6-sin(i/128)*5,1,1)
-			map(x,y+4,12+ x*7,-12+y*6-cos(i/128)*5,1,1)
-			pal()
-		end
-	end
+	camera()
+	drawtextfrommap(0,16,36,12,-82)
+	drawtextfrommap(0,20,36,12,-38)
 end
 
-function drawcallsign(callnr,x,y,clr)
-	local lcallsign = {}
-	for i = 1,2 do
-		local words = callsign[i]
-		local sub1 = 0
-		local sub2 = 0
-		for n = 1,#words do
-			if tonum(sub(words,n,n+1)) == callnr[i] then
-				sub1 = n
-			end 
-			if tonum(sub(words,n,n+1)) == callnr[i]+1 then
-				sub2 = n
-			end 
-		end
-		add(lcallsign, sub(words,sub1+2,sub2-1))
-	end
+function drawcallsign(signs,x,y,clr)
 	clr = clr or 7
-	print(lcallsign[1] .. " " .. lcallsign[2],x,y,clr)
+	print(signs[3] .. " " .. signs[4],x,y,clr)
 end
 
 function drawplayerviewport(p,y1,y2,yoffset)
@@ -1530,10 +1583,10 @@ function drawdeadplayer(p)
 		if every(2) then 
 			clr = 5
 			if p.energy > 95 and every(4) then clr = 7 end
-			line(p.x-4,p.y,p.x-6,p.y,clr)
-			line(p.x+4,p.y,p.x+6,p.y,clr)
-			line(p.x,p.y+7,p.x,p.y+9,clr)
-			line(p.x,p.y-7,p.x,p.y-9,clr)
+			-- line(p.x-4,p.y,p.x-6,p.y,clr)
+			-- line(p.x+4,p.y,p.x+6,p.y,clr)
+			-- line(p.x,p.y+7,p.x,p.y+9,clr)
+			-- line(p.x,p.y-7,p.x,p.y-9,clr)
 			rect(p.x-4,p.y-7,p.x+4,p.y+7,clr)
 			rectfill(p.x-4,p.y+7,p.x+4,p.y+7-flr(p.energy*0.14),clr)
 			palt(15,true) palt(0,false) spr(3,p.x-3,p.y-8+yoffset,1,2,false,flipy) palt() 
@@ -1666,9 +1719,6 @@ function drawui()
 	drawmini("x" .. multiplier,4+(#scorestring*10),63,5)
 	drawmini(minutesseconds(time),101,63,5)
 	pal()
-	--debug
-	-- local percent = flr(stat(1)*100)
-	-- print(percent .. "%", 4 , 4 , stat(1)*10)
 end
 
 
