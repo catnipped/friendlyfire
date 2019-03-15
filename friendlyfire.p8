@@ -4,12 +4,8 @@ __lua__
 
 --todo
 --  wave system pass 3
---	spawn points
---	spawn directions
 --  spawn animation
--- 	heavier bounding on enemy
 --  menu/highscore 
---	help screen
 
 
 --init and help functions below
@@ -193,7 +189,7 @@ function lerp(a,b,t)
 end
 
 function wavesystem()
-	local enemiesdb = {"alien","robot","orb"}
+	local enemiesdb = {"alien","robot","orb","trash","snake"}
 	local spawn = false
 	if every(60*15,14) then
 		difficulty += 1
@@ -208,14 +204,14 @@ function wavesystem()
 	 	local origin = generatespawnpoint()
 		 if difficulty < 2 then
 	 		add(things,spawnenemy(origin,"robot"))
-
+		
 	 	elseif difficulty < 4 then
 	 		local enemy = enemiesdb[1+flr(rnd(2))]
 			add(things,spawnenemy(origin,enemy))
-			things = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,things)
+								things = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,things)
 
 		elseif difficulty < 5 then
-			things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,vectors[1+flr(rnd(4))],things)
+			things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,vectornormalized(vectora2b(origin,origo)),things)
 		elseif difficulty < 6 then
 			add(things,spawnenemy(origin,"alien"))
 			add(things,spawnenemy(origin,"alien"))
@@ -227,13 +223,17 @@ function wavesystem()
 			things = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,things)
 		else
 			local enemy = enemiesdb[1+flr(rnd(#enemies))]
-			add(things,spawnenemy(origin,enemy))
-		end
-		if #enemies+#things > mid(5,difficulty,20) then
+			if enemy == "trash" then things = generatespacetrash(3+min(5,flr(rnd(difficulty))),origin,things)
+			elseif enemy == "snake" then things = generatesnake(3+min(5,flr(rnd(difficulty))),origin,vectornormalized(vectora2b(origin,origo)),things)
+			else
+				add(things,spawnenemy(origin,enemy))
+			end
 		end
 	end
 	for thing in all(things) do
-		add(enemies,thing)
+		if thing.id then
+			add(enemies,thing)
+		end
 	end
 end
 
@@ -254,7 +254,7 @@ end
 function updatetitle()
 	time += 1/60
 	for p in all(players) do
-		if btnp(4,p.id-1) then 
+		if btnp(4,p.id-1) and p.ready == false  then 
 			p.ready = true
 			sfx(23)
 			
@@ -264,7 +264,7 @@ function updatetitle()
 			sfx(18)
 		end
 	end
-	if time > 15 then
+	if time > 30 then
 	 screen = "highscores"
 	 xoffset = 0
 	 time = 0
@@ -445,7 +445,7 @@ function  updategame()
 	animations = updateanims(animations)
 	projectiles = cleanupprojs(projectiles)
 	time += 1/60
-	if players[1].death and players[2].death then
+	if players[1].death and players[2].death or time >= 60 * 5 then
 		screen = "gameover"
 		sfx(-1,1)
 		music(19)
@@ -800,7 +800,6 @@ function updateprojectiles(projs, sectors)
 end
 
 function outofbounds(object,limits)
-	printh(limits.x1)
 	return (object.x > limits.x2) or (object.x < limits.x1) or (object.y > limits.y2) or (object.y < limits.y1) 
 end
 
@@ -871,7 +870,7 @@ function spawnenemy(pos,type)
 				if outofbounds(enemy,combinedbounds) then
 					enemy.vector = vec(-enemy.vector.x,-enemy.vector.y)
 				end
-				if every(180) and enemy.projdir.x ~= 0 and enemy.projdir.y ~= 0 then
+				if every(180) then
 					local rectgfx = function (proj)
 						local colors = {14,7,11,8}
 						fillp(flr(rnd(9999)))
@@ -952,18 +951,21 @@ function generatesnake(size,origin,direction,enemies)
 		x = origin.x,
 		y = origin.y,
 		velocity = 1,
-		vector = vec(0,0),
+		vector = vectornormalized(vectora2b(origin,origo)),
 		hp = 2,
 		hit = {false, nil},
 		rad = 3,
 		movement = function(enemy,events) 
 			if every(10) then
 				local target = getclosestplayer(enemy.x,enemy.y)
+				if outofbounds(enemy,combinedbounds) then
+					target = vectornormalized(vectora2b(enemy,origo))
+				end
 				enemy.velocity += 0.01
 				local directionoftarget = vectornormalized(vectora2b(enemy,target))
 				enemy.vector = vec(
-					lerp(enemy.vector.x,directionoftarget.x,0.01),
-					lerp(enemy.vector.y,directionoftarget.y,0.01)
+					lerp(enemy.vector.x,directionoftarget.x,0.05),
+					lerp(enemy.vector.y,directionoftarget.y,0.05)
 				)
 			end
 		end,
@@ -1004,33 +1006,21 @@ function generatesnake(size,origin,direction,enemies)
 				local targetid = enemy.id -1
 				for i in all(enemies) do
 					if targetid == i.id then 
-						target = i 
+						target = i 				
 					end
 				end
-				if target == nil then 
-					enemy.movement = function(enemy,events) 
-						if every(10) then
-							enemy.velocity += 0.01
-							local target = getclosestplayer(enemy.x,enemy.y)
-							local directionoftarget = vectornormalized(vectora2b(enemy,target))
-							enemy.vector = vec(
-								lerp(enemy.vector.x,directionoftarget.x,0.01),
-								lerp(enemy.vector.y,directionoftarget.y,0.01)
-							)
-						end
-					end
+				if target == nil then target = getclosestplayer(enemy.x,enemy.y) end
+				enemy.velocity = target.velocity
+				if collisioncheck(enemy.x,enemy.y,target.x,target.y,enemy.rad*2,target.rad) then
+					-- enemy.vector = vec(0,0)
 				else
-					enemy.velocity = target.velocity
-					if collisioncheck(enemy.x,enemy.y,target.x,target.y,enemy.rad*2,target.rad) then
-						enemy.vector = vec(0,0)
-					else
-						local directionoftarget = vectornormalized(vectora2b(enemy,target))
-						enemy.vector = vec(
-							lerp(enemy.vector.x,directionoftarget.x,0.1),
-							lerp(enemy.vector.y,directionoftarget.y,0.1)
-						)
-					end
+					local directionoftarget = vectornormalized(vectora2b(enemy,target))
+					enemy.vector = vec(
+						lerp(enemy.vector.x,directionoftarget.x,0.04),
+						lerp(enemy.vector.y,directionoftarget.y,0.04)
+					)
 				end
+	
 			end,
 			gfx = master.gfx
 		}
@@ -1152,15 +1142,14 @@ end
 function updateenemies(e, events, sectors)
 	local les = {}
 	les = filter(e, function(le)
-	
 		le.x += le.vector.x * le.velocity
 		le.y += le.vector.y * le.velocity
 		le.movement(le,events)
 		le.hit = {false, nil}
-		if le.hp <= 0 then 
+		if le.hp <= 0 then
 			add(events,{type="animation", object = spawngfx("explosion",le.x,le.y)})
 		end
-		if le.hp <= 0 then 
+		if le.hp <= 0 then
 			score += le.points * (multiplier/10)
 			multiplier += 1
 			lastpoints = le.points
@@ -1441,18 +1430,26 @@ function drawgame()
 	drawui()
 end
 
+function multilineprint(string,width,x,y,clr)
+	local lines = #string % width
+	local clr = clr or 7
+	for l = 1,lines+1 do
+		print(sub(string,(l-1)*width,l*width-1),x,y+l*6,clr)
+	end
+end
+
 function drawtitle()
-	if players[2].ready then 
-		drawtextfrommap(0,0,36,12,12)
+	multilineprint("THIS IS A COOPERATIVE GAME.EACH PLAYER HAS A SHIP.     FRIENDLY FIRE IS ON! SHOOT  ENEMIES BUT NOT YOUR FRIEND!SURVIVE FOR 5 MINUTES AND   GET AS MANY POINTS POSSIBLE.                            PRESS \142 ON EACH CONTROLLER  WHEN READY.",28,10,24)
+
+	if players[2].ready and every(3) then 
+		print("PLAYER 2 READY",36,10,11)
 	end	
-	if players[1].ready then
-		drawtextfrommap(0,0,36,12,80)
+	if players[1].ready and every(3) then
+		print("PLAYER 1 READY",36,100,11)
 	end
 
 
 	camera()
-	print("THIS IS A COOPERATIVE GAME",14,53)
-	print("PRESS \151 ON BOTH CONTROLLERS",10,59)
 	
 	
 	pal()
@@ -1621,7 +1618,7 @@ end
 
 function drawenemies(p, cambounds,y1,y2,yoffset)
 	for enemy in all(enemies) do
-		if outofbounds(enemy,cambounds) then 
+		if outofbounds(enemy,cambounds) then
 			local x = mid((enemy.x),p.cam.x-66,p.cam.x+64)
 			local y = mid((enemy.y),p.cam.y+y1+yoffset-1,p.cam.y+y2+yoffset)
 			if enemy.velocity > 0.4 and every(8-enemy.velocity) then pal(8,7) end
